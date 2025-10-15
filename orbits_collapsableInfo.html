@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbit Visualiser</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    <style>
+	
+		body { margin: 0; 
+		
+		font-family: "Roboto Mono", monospace;
+		font-optical-sizing: auto;
+		font-weight: 400;
+		font-style: normal;
+		font-size: 14px;
+		line-height: 80%;
+		background-color: #000; color: #fff; overflow: hidden; display: flex; }
+        
+        #panel-container {
+            position: relative;
+			top: 0px;
+			z-index: 10;
+            display: flex;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        #info {
+            width: 330px;
+            max-height: calc(100vh - 25px);
+            overflow-y: auto;
+            margin: 1px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(190, 153, 5, 1);
+            transition: all 0.35s ease-in-out;
+            transform: translateX(0);
+        }
+
+        #info.collapsed {
+            transform: translateX(-100%);
+            width: 0px;
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: 0;
+            overflow-x: hidden;
+        }
+
+        #toggle-button {
+            position: absolute;
+            top: 5%;
+            left: 100%;
+            transform: translateX(0);
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            padding-left: 2px;
+            background: #BE9905;
+            border: 0px solid #666;
+            border-left: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 0 8px 8px 0;
+            font-size: 1.0em;
+            line-height: 48px;
+            text-align: center;
+            z-index: 10;
+            transition: all 0.35s ease-in-out;
+        }
+
+        #info.collapsed + #toggle-button {
+            transform: translateX(-10%);
+			background: #ed1248;
+        }
+
+        h1 {margin-top: 0; font-size: 1.8em; text-align: center; color: #BE9905; 
+			font-family: "Anta", sans-serif;
+			font-weight: 400;
+			font-style: normal;
+			line-height: 120%;
+		}
+        h2 { font-size: 0.9em; color: #BE9905; text-transform: uppercase; letter-spacing: 1px; margin-top: 20px; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;
+			line-height: 120%;
+			font-family: "Anta", sans-serif;
+			font-weight: 400;
+			font-style: normal;
+		
+		}
+        .control-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input[type="range"] { width: 100%; -webkit-appearance: none; appearance: none; height: 5px; background: #555; outline: none; border-radius: 5px; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; background: #BE9905; cursor: pointer; border-radius: 50%; border: 2px solid #000; }
+        input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; background: #BE9905; cursor: pointer; border-radius: 50%; border: 2px solid #000;}
+        .value { float: right; font-weight: normal; color: #ccc; }
+        .display-item { display: flex; justify-content: space-between; font-size: 0.9em; padding: 5px 0; border-bottom: 1px solid #333; }
+        .display-item:last-child { border-bottom: none; }
+        .display-label { color: #aaa; }
+        .display-value { font-weight: bold; }
+        .warning { font-size: 0.85em; font-weight: bold; text-align: center; padding: 6px; margin-top: 5px; border-radius: 4px; display: none; }
+        .warning.amber { display: block; background-color: #5d4500; color: #ffc107; }
+        .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
+        #scene-container {
+            flex-grow: 1;
+            height: 100vh;
+            min-width: 0; /* Fix for flexbox shrinking issue */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="panel-container">
+        <div id="info">
+            <h1>Orbit Visualiser</h1>
+            <h2>ORBITAL ELEMENTS</h2>
+            <div class="control-group">
+                <label for="a">Semi-major Axis (<i>a</i>) <span class="value" id="a_val"></span> km</label>
+                <input type="range" id="a" min="6600" max="50000" step="100">
+            </div>
+            <div class="control-group">
+                <label for="e">Eccentricity (<i>e</i>) <span class="value" id="e_val"></span></label>
+                <input type="range" id="e" min="0" max="0.95" step="0.001">
+            </div>
+            <div class="control-group">
+                <label for="i">Inclination (<i>i</i>) <span class="value" id="i_val"></span>°</label>
+                <input type="range" id="i" min="0" max="180" step="0.1">
+            </div>
+            <div class="control-group">
+                <label for="raan">Right Ascension of Ascending Node (<i>Ω</i>) <span class="value" id="raan_val"></span>°</label>
+                <input type="range" id="raan" min="0" max="360" step="0.1">
+            </div>
+            <div class="control-group">
+                <label for="aop">Argument of Perigee (<i>ω</i>) <span class="value" id="aop_val"></span>°</label>
+                <input type="range" id="aop" min="0" max="360" step="0.1">
+            </div>
+
+            <h2>DERIVED PARAMETERS</h2>
+            <div class="display-group">
+                <div class="display-item"><span class="display-label">Apogee Altitude</span><span class="display-value" id="apogee_val"></span></div>
+                <div class="display-item"><span class="display-label">Perigee Altitude</span><span class="display-value" id="perigee_val"></span></div>
+                <div id="perigee_warning" class="warning"></div>
+                <div class="display-item"><span class="display-label">Orbit Period</span><span class="display-value" id="period_val"></span></div>
+                <div class="display-item"><span class="display-label">Specific Orbit Energy (<i>ε</i>)</span><span class="display-value" id="energy_val"></span></div>
+                <div class="display-item"><span class="display-label">Semi-latus Rectum (<i>p</i>)</span><span class="display-value" id="p_val"></span></div>
+                <div class="display-item"><span class="display-label">Semi-minor Axis (<i>b</i>)</span><span class="display-value" id="b_val"></span></div>
+                <div class="display-item"><span class="display-label">Longitude of Periapsis (<i>ϖ</i>)</span><span class="display-value" id="lon_peri_val"></span></div>
+            </div>
+
+            <h2>SATELLITE STATE</h2>
+             <div class="display-group">
+                <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">0 km</span></div>
+                <div class="display-item"><span class="display-label">True Anomaly (<i>ν or θ</i>)</span><span class="display-value" id="nu_val">0.0°</span></div>
+                <div class="display-item"><span class="display-label">Eccentric Anomaly (<i>E</i>)</span><span class="display-value" id="E_val">0.0°</span></div>
+                <div class="display-item"><span class="display-label">Eccentric Longitude (<i>K</i>)</span><span class="display-value" id="lon_ecc_val">0.0°</span></div>
+                <div class="display-item"><span class="display-label">True Longitude (<i>L</i>)</span><span class="display-value" id="lon_true_val">0.0°</span></div>
+            </div>
+
+            <h2>SIMULATION CONTROLS</h2>
+            <div class="control-group">
+                <label for="speed">Simulation Speed <span class="value" id="speed_val">x500</span></label>
+                <input type="range" id="speed" min="0" max="5000" step="1" value="500">
+            </div>
+        </div>
+        <button id="toggle-button" title="Toggle Controls">◀</button>
+    </div>
+    
+    <div id="scene-container"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- Textures ---
+        const earthTextureURL = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_atmos_2048.jpg';
+        const earthSpecularURL = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_specular_2048.gif';
+        const earthCloudsURL = 'https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/textures/planets/earth_clouds_2048.png';
+
+        // --- Constants ---
+        const EARTH_RADIUS = 6371; // km
+        const MU_EARTH = 398600.4418; // km^3/s^2
+        const SCALE = 1 / 2000; // 1 scene unit = 1000 km
+
+        // --- DOM Elements ---
+        const sliders = { a: document.getElementById('a'), e: document.getElementById('e'), i: document.getElementById('i'), raan: document.getElementById('raan'), aop: document.getElementById('aop'), speed: document.getElementById('speed') };
+        const valueDisplays = { a: document.getElementById('a_val'), e: document.getElementById('e_val'), i: document.getElementById('i_val'), raan: document.getElementById('raan_val'), aop: document.getElementById('aop_val'), speed: document.getElementById('speed_val') };
+        const derivedDisplays = { p: document.getElementById('p_val'), b: document.getElementById('b_val'), lon_peri: document.getElementById('lon_peri_val'), apogee: document.getElementById('apogee_val'), perigee: document.getElementById('perigee_val'), period: document.getElementById('period_val'), energy: document.getElementById('energy_val') };
+        const satelliteDisplays = { alt: document.getElementById('alt_val'), nu: document.getElementById('nu_val'), E: document.getElementById('E_val'), lon_ecc: document.getElementById('lon_ecc_val'), lon_true: document.getElementById('lon_true_val') };
+        const perigeeWarningDiv = document.getElementById('perigee_warning');
+        const container = document.getElementById('scene-container');
+        const infoDiv = document.getElementById('info');
+        const toggleButton = document.getElementById('toggle-button');
+
+        // --- Initial Orbit (Molniya) ---
+        const initialParams = { a: 26600, e: 0.74, i: 63.4, raan: 50, aop: 270 };
+
+        // --- Three.js Scene Setup ---
+        let scene, camera, renderer, controls, clock, earth, clouds, orbitLine, satellite;
+
+        // --- Orbit Calculation State ---
+        let meanMotion = 0; // n
+        let meanAnomaly = 0; // M
+
+        function init() {
+            scene = new THREE.Scene();
+            clock = new THREE.Clock();
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(40, 40, 40);
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setClearColor(0x000000, 1);
+            container.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+            directionalLight.position.set(5, 3, 5);
+            scene.add(directionalLight);
+            
+            const textureLoader = new THREE.TextureLoader();
+            const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS * SCALE, 64, 64);
+            const earthMat = new THREE.MeshPhongMaterial({ map: textureLoader.load(earthTextureURL), specularMap: textureLoader.load(earthSpecularURL), specular: new THREE.Color('grey'), shininess: 10 });
+            earth = new THREE.Mesh(earthGeo, earthMat);
+            scene.add(earth);
+
+            const cloudGeo = new THREE.SphereGeometry(EARTH_RADIUS * SCALE * 1.005, 64, 64);
+            const cloudMat = new THREE.MeshPhongMaterial({ map: textureLoader.load(earthCloudsURL), transparent: true, opacity: 0.3 });
+            clouds = new THREE.Mesh(cloudGeo, cloudMat);
+            scene.add(clouds);
+
+            const axesHelper = new THREE.AxesHelper(EARTH_RADIUS * SCALE * 2);
+            scene.add(axesHelper);
+
+            const orbitMaterial = new THREE.LineBasicMaterial({ color: 0xffeb3b });
+            orbitLine = new THREE.Line(new THREE.BufferGeometry(), orbitMaterial);
+            scene.add(orbitLine);
+            
+            const satGeo = new THREE.SphereGeometry(200 * SCALE, 16, 16);
+            const satMat = new THREE.MeshPhongMaterial({ color: 0x00ffff, emissive: 0x00ffff });
+            satellite = new THREE.Mesh(satGeo, satMat);
+            scene.add(satellite);
+            
+            setupUI();
+            updateOrbit();
+            animate();
+            window.addEventListener('resize', onWindowResize, false);
+        }
+        
+        function setupUI() {
+            for (const key in sliders) {
+                if(key !== 'speed') sliders[key].value = initialParams[key];
+                sliders[key].addEventListener('input', key === 'speed' ? updateSpeedDisplay : updateOrbit);
+            }
+            updateSpeedDisplay();
+
+            toggleButton.addEventListener('click', () => {
+                infoDiv.classList.toggle('collapsed');
+                if (infoDiv.classList.contains('collapsed')) {
+                    toggleButton.textContent = '▶';
+                } else {
+                    toggleButton.textContent = '◀';
+                }
+                setTimeout(onWindowResize, 350);
+            });
+        }
+
+        function updateSpeedDisplay() {
+            valueDisplays.speed.textContent = `x${sliders.speed.value}`;
+        }
+
+        function updateOrbit() {
+            const a = parseFloat(sliders.a.value);
+            const e = parseFloat(sliders.e.value);
+            const i_deg = parseFloat(sliders.i.value);
+            const raan_deg = parseFloat(sliders.raan.value);
+            const aop_deg = parseFloat(sliders.aop.value);
+
+            valueDisplays.a.textContent = a.toFixed(0);
+            valueDisplays.e.textContent = e.toFixed(3);
+            valueDisplays.i.textContent = i_deg.toFixed(1);
+            valueDisplays.raan.textContent = raan_deg.toFixed(1);
+            valueDisplays.aop.textContent = aop_deg.toFixed(1);
+
+            const points = [];
+            const numPoints = 360;
+            for (let j = 0; j <= numPoints; j++) {
+                const true_anomaly_rad = (j / numPoints) * 2 * Math.PI;
+                points.push(calculatePositionVector(true_anomaly_rad));
+            }
+            orbitLine.geometry.setFromPoints(points);
+            
+            const T_seconds = 2 * Math.PI * Math.sqrt(Math.pow(a, 3) / MU_EARTH);
+            const T_hours = T_seconds / 3600;
+            const energy = -MU_EARTH / (2 * a);
+            const p = a * (1 - e * e), b = a * Math.sqrt(1 - e * e);
+            const lon_peri_deg = (raan_deg + aop_deg) % 360;
+            const apogee_alt = a * (1 + e) - EARTH_RADIUS;
+            const perigee_alt = a * (1 - e) - EARTH_RADIUS;
+
+            derivedDisplays.period.textContent = `${T_hours.toFixed(2)} hours`;
+            derivedDisplays.energy.textContent = `${energy.toFixed(2)} km²/s²`;
+            derivedDisplays.p.textContent = `${p.toFixed(0)} km`;
+            derivedDisplays.b.textContent = `${b.toFixed(0)} km`;
+            derivedDisplays.lon_peri.textContent = `${lon_peri_deg.toFixed(1)}°`;
+            derivedDisplays.apogee.textContent = `${apogee_alt.toFixed(0)} km`;
+            derivedDisplays.perigee.textContent = `${perigee_alt.toFixed(0)} km`;
+
+            perigeeWarningDiv.className = 'warning'; perigeeWarningDiv.textContent = '';
+            derivedDisplays.perigee.style.color = '';
+            if (perigee_alt < 80) {
+                perigeeWarningDiv.classList.add('red'); perigeeWarningDiv.textContent = 'WARNING: Atmospheric re-entry!';
+                derivedDisplays.perigee.style.color = '#ff5252';
+            } else if (perigee_alt < 250) {
+                perigeeWarningDiv.classList.add('amber'); perigeeWarningDiv.textContent = 'CAUTION: High atmospheric drag.';
+                derivedDisplays.perigee.style.color = '#ffc107';
+            }
+            
+            meanMotion = 2 * Math.PI / T_seconds;
+            meanAnomaly = 0;
+        }
+
+        function solveKepler(M, e) {
+            let E = M; const tolerance = 1e-6;
+            for (let i = 0; i < 100; i++) {
+                const f = E - e * Math.sin(E) - M;
+                const f_prime = 1 - e * Math.cos(E);
+                const delta = f / f_prime; E -= delta;
+                if (Math.abs(delta) < tolerance) return E;
+            }
+            return E;
+        }
+
+        function calculatePositionVector(true_anomaly_rad) {
+            const a = parseFloat(sliders.a.value); const e = parseFloat(sliders.e.value);
+            const i_deg = parseFloat(sliders.i.value); const raan_deg = parseFloat(sliders.raan.value); const aop_deg = parseFloat(sliders.aop.value);
+            const r_mag = a * (1 - e * e) / (1 + e * Math.cos(true_anomaly_rad));
+            const x_orb = r_mag * Math.cos(true_anomaly_rad); const y_orb = r_mag * Math.sin(true_anomaly_rad);
+            const i_rad = i_deg * Math.PI / 180; const raan_rad = raan_deg * Math.PI / 180; const aop_rad = aop_deg * Math.PI / 180;
+            const cR = Math.cos(raan_rad), sR = Math.sin(raan_rad); const cA = Math.cos(aop_rad), sA = Math.sin(aop_rad); const cI = Math.cos(i_rad), sI = Math.sin(i_rad);
+            const Rxx = cR*cA - sR*sA*cI, Rxy = -cR*sA - sR*cA*cI; const Ryx = sR*cA + cR*sA*cI, Ryy = -sR*sA + cR*cA*cI; const Rzx = sA*sI, Rzy = cA*sI;
+            const x_eci = (Rxx * x_orb + Rxy * y_orb) * SCALE; const y_eci = (Ryx * x_orb + Ryy * y_orb) * SCALE; const z_eci = (Rzx * x_orb + Rzy * y_orb) * SCALE;
+            return new THREE.Vector3(x_eci, z_eci, -y_eci);
+        }
+
+        function updateSatellite(deltaTime) {
+            const speedMultiplier = parseFloat(sliders.speed.value);
+            if (!meanMotion) return;
+            
+            if (speedMultiplier > 0) {
+                 meanAnomaly += meanMotion * deltaTime * speedMultiplier;
+                 meanAnomaly %= (2 * Math.PI);
+            }
+
+            const e = parseFloat(sliders.e.value);
+            const raan_deg = parseFloat(sliders.raan.value);
+            const aop_deg = parseFloat(sliders.aop.value);
+            
+            const E_rad = solveKepler(meanAnomaly, e);
+            const sin_nu = (Math.sqrt(1 - e * e) * Math.sin(E_rad)) / (1 - e * Math.cos(E_rad));
+            const cos_nu = (Math.cos(E_rad) - e) / (1 - e * Math.cos(E_rad));
+            const nu_rad = Math.atan2(sin_nu, cos_nu);
+
+            const positionVector = calculatePositionVector(nu_rad);
+            satellite.position.copy(positionVector);
+
+            const altitude = (positionVector.length() / SCALE) - EARTH_RADIUS;
+            const E_deg = E_rad * 180 / Math.PI;
+            
+            let nu_deg = nu_rad * 180 / Math.PI;
+            if (nu_deg < 0) nu_deg += 360;
+
+            let lon_ecc_deg = (raan_deg + aop_deg + E_deg) % 360;
+            let lon_true_deg = (raan_deg + aop_deg + nu_deg) % 360;
+            if (lon_ecc_deg < 0) lon_ecc_deg += 360;
+            if (lon_true_deg < 0) lon_true_deg += 360;
+
+            satelliteDisplays.alt.textContent = `${altitude.toFixed(0)} km`;
+            satelliteDisplays.E.textContent = `${E_deg.toFixed(1)}°`;
+            satelliteDisplays.nu.textContent = `${nu_deg.toFixed(1)}°`;
+            satelliteDisplays.lon_ecc.textContent = `${lon_ecc_deg.toFixed(1)}°`;
+            satelliteDisplays.lon_true.textContent = `${lon_true_deg.toFixed(1)}°`;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const deltaTime = clock.getDelta();
+            controls.update();
+            earth.rotation.y += 0.005 * deltaTime;
+            clouds.rotation.y += 0.006 * deltaTime;
+            updateSatellite(deltaTime);
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
