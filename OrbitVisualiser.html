@@ -32,7 +32,8 @@
             width: 330px;
             max-height: calc(100vh - 25px);
             overflow-y: auto;
-            margin: 1px;
+            margin: 5px;
+			margin-left: 15px;
             padding: 5px;
             background: rgba(0, 0, 0, 0.1);
             border-radius: 10px;
@@ -141,10 +142,10 @@
 
             <h2>DERIVED PARAMETERS</h2>
             <div class="display-group">
-                <div class="display-item"><span class="display-label">Apogee Altitude</span><span class="display-value" id="apogee_val"></span></div>
-                <div class="display-item"><span class="display-label">Perigee Altitude</span><span class="display-value" id="perigee_val"></span></div>
+                <div class="display-item"><span class="display-label">Apogee Altitude (<i>r<sub>a</sub></i>)</span><span class="display-value" id="apogee_val"></span></div>
+                <div class="display-item"><span class="display-label">Perigee Altitude (<i>r<sub>p</sub></i>)</span><span class="display-value" id="perigee_val"></span></div>
                 <div id="perigee_warning" class="warning"></div>
-                <div class="display-item"><span class="display-label">Orbit Period</span><span class="display-value" id="period_val"></span></div>
+                <div class="display-item"><span class="display-label">Orbit Period (<i>T</i>)</span><span class="display-value" id="period_val"></span></div>
                 <div class="display-item"><span class="display-label">Specific Orbit Energy (<i>ε</i>)</span><span class="display-value" id="energy_val"></span></div>
                 <div class="display-item"><span class="display-label">Semi-latus Rectum (<i>p</i>)</span><span class="display-value" id="p_val"></span></div>
                 <div class="display-item"><span class="display-label">Semi-minor Axis (<i>b</i>)</span><span class="display-value" id="b_val"></span></div>
