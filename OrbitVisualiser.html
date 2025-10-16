@@ -111,6 +111,26 @@
             height: 100vh;
             min-width: 0; /* Fix for flexbox shrinking issue */
         }
+        .preset-buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 5px;
+        }
+        .preset-buttons button {
+            flex-grow: 1;
+            padding: 8px 5px;
+            background-color: #333;
+            color: #ddd;
+            border: 1px solid #555;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: "Roboto Mono", monospace;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .preset-buttons button:hover {
+            background-color: #BE9905;
+            color: #000;
+        }
     </style>
 </head>
 <body>
@@ -118,6 +138,14 @@
     <div id="panel-container">
         <div id="info">
             <h1>Orbit Visualiser</h1>
+            
+            <h2>PRESET ORBITS</h2>
+            <div class="preset-buttons">
+                <button id="btn-geo">GEO</button>
+                <button id="btn-molniya">Molniya</button>
+                <button id="btn-iss">ISS</button>
+            </div>
+
             <h2>ORBITAL ELEMENTS</h2>
             <div class="control-group">
                 <label for="a">Semi-major Axis (<i>a</i>) <span class="value" id="a_val"></span> km</label>
@@ -184,7 +212,7 @@
         // --- Constants ---
         const EARTH_RADIUS = 6371; // km
         const MU_EARTH = 398600.4418; // km^3/s^2
-        const SCALE = 1 / 2000; // 1 scene unit = 1000 km
+        const SCALE = 1 / 2000; // 1 scene unit = 2000 km
 
         // --- DOM Elements ---
         const sliders = { a: document.getElementById('a'), e: document.getElementById('e'), i: document.getElementById('i'), raan: document.getElementById('raan'), aop: document.getElementById('aop'), speed: document.getElementById('speed') };
@@ -196,8 +224,12 @@
         const infoDiv = document.getElementById('info');
         const toggleButton = document.getElementById('toggle-button');
 
-        // --- Initial Orbit (Molniya) ---
-        const initialParams = { a: 26600, e: 0.74, i: 63.4, raan: 50, aop: 270 };
+        // --- Preset Orbits Data ---
+        const presetOrbits = {
+            geo: { a: 42164, e: 0.0, i: 0.0, raan: 0, aop: 0 },
+            molniya: { a: 26600, e: 0.74, i: 63.4, raan: 50, aop: 270 },
+            iss: { a: 6771, e: 0.001, i: 51.6, raan: 120, aop: 90 }
+        };
 
         // --- Three.js Scene Setup ---
         let scene, camera, renderer, controls, clock, earth, clouds, orbitLine, satellite;
@@ -248,14 +280,13 @@
             scene.add(satellite);
             
             setupUI();
-            updateOrbit();
+            setPresetOrbit('molniya'); // Set initial orbit
             animate();
             window.addEventListener('resize', onWindowResize, false);
         }
         
         function setupUI() {
             for (const key in sliders) {
-                if(key !== 'speed') sliders[key].value = initialParams[key];
                 sliders[key].addEventListener('input', key === 'speed' ? updateSpeedDisplay : updateOrbit);
             }
             updateSpeedDisplay();
@@ -269,6 +300,23 @@
                 }
                 setTimeout(onWindowResize, 350);
             });
+
+            document.getElementById('btn-geo').addEventListener('click', () => setPresetOrbit('geo'));
+            document.getElementById('btn-molniya').addEventListener('click', () => setPresetOrbit('molniya'));
+            document.getElementById('btn-iss').addEventListener('click', () => setPresetOrbit('iss'));
+        }
+
+        function setPresetOrbit(name) {
+            const params = presetOrbits[name];
+            if (!params) return;
+
+            sliders.a.value = params.a;
+            sliders.e.value = params.e;
+            sliders.i.value = params.i;
+            sliders.raan.value = params.raan;
+            sliders.aop.value = params.aop;
+
+            updateOrbit();
         }
 
         function updateSpeedDisplay() {
