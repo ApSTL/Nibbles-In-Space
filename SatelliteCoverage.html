@@ -27,7 +27,7 @@
         }
         
         #panel-container {
-            position: absolute; /* CHANGED for overlay */
+            position: absolute; 
 			top: 0px;
             left: 0; 
 			z-index: 10;
@@ -163,7 +163,7 @@
         }
         .warning.amber { display: block; background-color: #5d4500; color: #ffc107; }
         .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
-        .display-group { margin-bottom: 12px; } /* NEW */
+        .display-group { margin-bottom: 12px; } 
 
         /* --- NEW STYLES FOR THIS VISUALISER --- */
         #map-container {
@@ -182,7 +182,7 @@
             width: 100%;
             height: 100%;
             z-index: 1;
-            image-rendering: pixelated; 
+            /* image-rendering: pixelated; -- REMOVED for smoothing */
         }
 
         #map-svg {
@@ -196,14 +196,14 @@
         }
 
         /* Map Element Styles */
-        .coastline { /* CHANGED from .land */
+        .coastline { 
             fill: none;
             stroke: #888;
             stroke-width: 0.5px;
         }
         .graticule { 
             fill: none; 
-            stroke: #333; /* Darker */
+            stroke: #333; 
             stroke-width: 0.5px; 
             stroke-dasharray: 2,2; 
         }
@@ -311,6 +311,23 @@
         .sat-2-color { color: #00e676; }
         .sat-3-color { color: #3d5afe; }
 
+        /* NEW Button Style */
+        .sim-button {
+            width: 100%;
+            padding: 10px;
+            background-color: #BE9905;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            font-family: "Roboto Mono", monospace;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .sim-button:hover {
+            background-color: #ffd966;
+        }
     </style>
 </head>
 <body>
@@ -501,6 +518,8 @@
                     <label for="speed">Simulation Speed <span class="value" id="speed_val">x500</span></label>
                     <input type="range" id="speed" min="0" max="5000" step="1" value="500">
                 </div>
+                <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
+                
                 <h2>SIMULATION STATE</h2>
                 <div id="sim-time-display"></div>
             </div>
@@ -537,8 +556,7 @@
     </div>
     
     <div id="map-container">
-        <canvas id="heatmap-canvas" width="180" height="90"></canvas>
-        <svg id="map-svg"></svg>
+        <canvas id="heatmap-canvas" width="360" height="180"></canvas> <svg id="map-svg"></svg>
     </div>
 
     <script id="stats-worker" type="text/worker">
@@ -661,6 +679,7 @@
             speedSlider: document.getElementById('speed'),
             speedValue: document.getElementById('speed_val'),
             simTimeDisplay: document.getElementById('sim-time-display'),
+            resetSimBtn: document.getElementById('reset-sim-btn'), // NEW
             stats: {
                 val: [
                     document.getElementById('stat-0'), 
@@ -681,20 +700,20 @@
                 i: document.getElementById(`i-${i}`),
                 raan: document.getElementById(`raan-${i}`),
                 aop: document.getElementById(`aop-${i}`),
-                m0: document.getElementById(`m0-${i}`), // NEW
+                m0: document.getElementById(`m0-${i}`), 
                 fov: document.getElementById(`fov-${i}`),
                 track: document.getElementById(`track-${i}`),
-                cov: document.getElementById(`cov-${i}`), // NEW
+                cov: document.getElementById(`cov-${i}`), 
                 val: {
                     a: document.getElementById(`a-${i}_val`),
                     e: document.getElementById(`e-${i}_val`),
                     i: document.getElementById(`i-${i}_val`),
                     raan: document.getElementById(`raan-${i}_val`),
                     aop: document.getElementById(`aop-${i}_val`),
-                    m0: document.getElementById(`m0-${i}_val`), // NEW
+                    m0: document.getElementById(`m0-${i}_val`), 
                     fov: document.getElementById(`fov-${i}_val`),
-                    nu: document.getElementById(`nu_val-${i}`), // NEW
-                    alt: document.getElementById(`alt_val-${i}`) // NEW
+                    nu: document.getElementById(`nu_val-${i}`), 
+                    alt: document.getElementById(`alt_val-${i}`) 
                 },
                 warning: document.getElementById(`perigee_warning-${i}`)
             }))
@@ -731,6 +750,9 @@
                 dom.speedValue.textContent = `x${dom.speedSlider.value}`;
             });
 
+            // NEW: Reset button
+            dom.resetSimBtn.addEventListener('click', resetSimulation);
+
             // Satellite control sliders
             dom.sats.forEach((sat, index) => {
                 const updateFn = () => updateSatelliteUI(index);
@@ -739,7 +761,7 @@
                 sat.i.addEventListener('input', updateFn);
                 sat.raan.addEventListener('input', updateFn);
                 sat.aop.addEventListener('input', updateFn);
-                sat.m0.addEventListener('input', updateFn); // NEW
+                sat.m0.addEventListener('input', updateFn); 
                 sat.fov.addEventListener('input', updateFn);
                 sat.track.addEventListener('change', () => {
                     if (!sat.track.checked) {
@@ -761,7 +783,7 @@
             sat.val.i.textContent = parseFloat(sat.i.value).toFixed(1);
             sat.val.raan.textContent = parseFloat(sat.raan.value).toFixed(1);
             sat.val.aop.textContent = parseFloat(sat.aop.value).toFixed(1);
-            sat.val.m0.textContent = parseFloat(sat.m0.value).toFixed(1); // NEW
+            sat.val.m0.textContent = parseFloat(sat.m0.value).toFixed(1); 
             sat.val.fov.textContent = `${sat.fov.value}°`;
             
             // Perigee Warning (from original file)
@@ -816,15 +838,15 @@
         function initMap() {
             svg = d3.select("#map-svg");
             heatmapCtx = dom.heatmapCanvas.getContext('2d', { willReadFrequently: true });
-            heatmapWidth = dom.heatmapCanvas.width;
-            heatmapHeight = dom.heatmapCanvas.height;
+            heatmapWidth = dom.heatmapCanvas.width; // Reads 360
+            heatmapHeight = dom.heatmapCanvas.height; // Reads 180
 
             projection = d3.geoEquirectangular().translate([0, 0]).scale(1);
             path = d3.geoPath(projection);
 
             // Create layers
             svg.append("g").attr("id", "graticule-layer");
-            svg.append("g").attr("id", "coastline-layer"); // CHANGED
+            svg.append("g").attr("id", "coastline-layer"); 
             svg.append("g").attr("id", "track-layer");
             svg.append("g").attr("id", "satellite-layer");
 
@@ -837,9 +859,9 @@
 
             // Load and draw world map (coastlines)
             d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
-                svg.select("#coastline-layer").append("path") // CHANGED
-                    .datum(topojson.feature(world, world.objects.countries)) // CHANGED
-                    .attr("class", "coastline") // CHANGED
+                svg.select("#coastline-layer").append("path") 
+                    .datum(topojson.feature(world, world.objects.countries)) 
+                    .attr("class", "coastline") 
                     .attr("d", path);
                 onWindowResize(); // Fit map to screen
             });
@@ -874,7 +896,7 @@
                         ((y + 0.5) / heatmapHeight) * h
                     ]);
                     
-                    // NEW: Explicitly ignore anything outside 90/-90 lat
+                    // Explicitly ignore anything outside 90/-90 lat
                     if (isNaN(lon) || isNaN(lat) || lat > 90 || lat < -90) { 
                         pixelToGeoCache.push(null);
                     } else {
@@ -897,7 +919,7 @@
             projection.scale(w / (2 * Math.PI) * 0.95).translate([w / 2, h / 2]);
             
             // Redraw map elements
-            svg.select(".coastline").attr("d", path); // CHANGED
+            svg.select(".coastline").attr("d", path); 
             svg.select(".graticule").attr("d", path);
 
             // Redraw ground tracks and satellites
@@ -924,6 +946,7 @@
                .attr("d", path);
             
             lastStatsUpdateTime = 0;
+            lastTimestamp = 0; // Force timestamp reset in sim loop
         }
 
         function simulationLoop(timestamp) {
@@ -952,7 +975,7 @@
                 const state = propagateSatellite(i, elapsedSimSeconds, currentGST);
                 satelliteStates[i] = state;
 
-                // NEW: Update state displays
+                // Update state displays
                 if (state.nu_rad && state.alt_km) {
                     let nu_deg = state.nu_rad * RAD_TO_DEG;
                     if (nu_deg < 0) nu_deg += 360;
@@ -960,7 +983,7 @@
                     sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
                 }
 
-                // NEW: Check if coverage is enabled
+                // Check if coverage is enabled
                 if (state.ecef && sat.cov.checked) { 
                     const fov_rad = parseFloat(sat.fov.value) * DEG_TO_RAD / 2.0;
                     const satPos = state.ecef;
@@ -1019,7 +1042,7 @@
 
         // --- Coverage Calculation (Heatmap & Stats) ---
 
-        // NEW: Red color palette
+        // Red color palette
         const heatmapColors = [
             [0, 0, 0, 0],         // 0 sats (transparent)
             [255, 100, 100, 100], // 1 sat (light red)
@@ -1102,7 +1125,7 @@
             // Get epoch values
             const raan_0_rad = parseFloat(params.raan.value) * DEG_TO_RAD;
             const aop_0_rad = parseFloat(params.aop.value) * DEG_TO_RAD;
-            const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD; // NEW
+            const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD; 
 
             // 1. Calculate J2 Perturbation Rates
             const n = Math.sqrt(MU_EARTH / (a**3)); // mean motion
@@ -1155,7 +1178,7 @@
             // 7. Convert ECEF to Lat/Lon
             const latLon = ecefToLatLon(ecef);
             
-            // 8. NEW: Calculate current True Anomaly and Altitude for display
+            // 8. Calculate current True Anomaly and Altitude for display
             const nu_rad = Math.atan2(Math.sqrt(1 - e**2) * Math.sin(E_rad), Math.cos(E_rad) - e);
             const r_mag = a * (1 - e * Math.cos(E_rad));
             const alt_km = r_mag - EARTH_RADIUS_KM;
@@ -1176,18 +1199,9 @@
         }
 
         // --- Coordinate Transforms ---
-
-        function ecefToLatLon(ecef) {
-            const lon_rad = Math.atan2(ecef.y, eci.x); // ERROR FOUND: eci.x should be ecef.x
-            const p = Math.sqrt(ecef.x**2 + ecef.y**2);
-            const lat_rad = Math.atan2(ecef.z, p);
-            // We ignore altitude for this 2D map
-            return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG];
-        }
         
-        // --- CORRECTED ecefToLatLon ---
         function ecefToLatLon(ecef) {
-            const lon_rad = Math.atan2(ecef.y, ecef.x); // CORRECTED
+            const lon_rad = Math.atan2(ecef.y, ecef.x);
             const p = Math.sqrt(ecef.x**2 + ecef.y**2);
             const lat_rad = Math.atan2(ecef.z, p);
             return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG];
