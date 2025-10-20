@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satellite Coverage Visualiser</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+
+    <style>
+        /* --- STYLES COPIED FROM OrbitVisualiser.html --- */
+		body { 
+            margin: 0; 
+            font-family: "Roboto Mono", monospace;
+            font-optical-sizing: auto;
+            font-weight: 400;
+            font-style: normal;
+            font-size: 14px;
+            line-height: 80%;
+            background-color: #000; 
+            color: #fff; 
+            overflow: hidden; 
+        }
+        
+        #panel-container {
+            position: absolute; /* CHANGED for overlay */
+			top: 0px;
+            left: 0; 
+			z-index: 10;
+            display: flex;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        #info {
+            width: 335px;
+            max-height: calc(100vh - 25px);
+            overflow-y: auto;
+            margin: 5px;
+			margin-left: 15px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(190, 153, 5, 1);
+            transition: all 0.35s ease-in-out;
+            transform: translateX(0);
+        }
+
+        #info.collapsed {
+            transform: translateX(-100%);
+            width: 0px;
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: 0;
+            overflow-x: hidden;
+        }
+
+        #toggle-button {
+            position: absolute;
+            top: 5%;
+            left: 100%;
+            transform: translateX(0);
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            padding-left: 2px;
+            background: #BE9905;
+            border: 0px solid #666;
+            border-left: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 0 8px 8px 0;
+            font-size: 1.0em;
+            line-height: 48px;
+            text-align: center;
+            z-index: 10;
+            transition: all 0.35s ease-in-out;
+        }
+
+        #info.collapsed + #toggle-button {
+            transform: translateX(-10%);
+			background: #ed1248;
+        }
+
+        h1 {
+            margin-top: 0; 
+            font-size: 1.8em; 
+            text-align: center; 
+            color: #BE9905; 
+			font-family: "Anta", sans-serif;
+			font-weight: 400;
+			font-style: normal;
+			line-height: 120%;
+		}
+        h2 { 
+            font-size: 0.9em; 
+            color: #BE9905; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            margin-top: 20px; 
+            margin-bottom: 10px; 
+            border-bottom: 1px solid #444; 
+            padding-bottom: 5px;
+			line-height: 120%;
+			font-family: "Anta", sans-serif;
+			font-weight: 400;
+			font-style: normal;
+		}
+        .control-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input[type="range"] { 
+            width: 100%; 
+            -webkit-appearance: none; 
+            appearance: none; 
+            height: 5px; 
+            background: #555; 
+            outline: none; 
+            border-radius: 5px; 
+        }
+        input[type="range"]::-webkit-slider-thumb { 
+            -webkit-appearance: none; 
+            appearance: none; 
+            width: 16px; 
+            height: 16px; 
+            background: #BE9905; 
+            cursor: pointer; 
+            border-radius: 50%; 
+            border: 2px solid #000; 
+        }
+        input[type="range"]::-moz-range-thumb { 
+            width: 16px; 
+            height: 16px; 
+            background: #BE9905; 
+            cursor: pointer; 
+            border-radius: 50%; 
+            border: 2px solid #000;
+        }
+        .value { float: right; font-weight: normal; color: #ccc; }
+        .display-item { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.9em; 
+            padding: 5px 0; 
+            border-bottom: 1px solid #333; 
+        }
+        .display-item:last-child { border-bottom: none; }
+        .display-label { color: #aaa; }
+        .display-value { font-weight: bold; }
+        .warning { 
+            font-size: 0.85em; 
+            font-weight: bold; 
+            text-align: center; 
+            padding: 6px; 
+            margin-top: 5px; 
+            border-radius: 4px; 
+            display: none; 
+        }
+        .warning.amber { display: block; background-color: #5d4500; color: #ffc107; }
+        .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
+        .display-group { margin-bottom: 12px; } /* NEW */
+
+        /* --- NEW STYLES FOR THIS VISUALISER --- */
+        #map-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            min-width: 0;
+        }
+
+        #heatmap-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            image-rendering: pixelated; 
+        }
+
+        #map-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2; /* SVG on top of canvas */
+            background-color: transparent;
+        }
+
+        /* Map Element Styles */
+        .coastline { /* CHANGED from .land */
+            fill: none;
+            stroke: #888;
+            stroke-width: 0.5px;
+        }
+        .graticule { 
+            fill: none; 
+            stroke: #333; /* Darker */
+            stroke-width: 0.5px; 
+            stroke-dasharray: 2,2; 
+        }
+        .satellite { fill: #00ffff; stroke: #fff; stroke-width: 1.5px; }
+        .ground-track-1 { fill: none; stroke: #ff5252; stroke-width: 1.5px; opacity: 0.7; }
+        .ground-track-2 { fill: none; stroke: #00e676; stroke-width: 1.5px; opacity: 0.7; }
+        .ground-track-3 { fill: none; stroke: #3d5afe; stroke-width: 1.5px; opacity: 0.7; }
+
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 10px;
+        }
+        .tab-button {
+            flex-grow: 1;
+            padding: 8px 5px;
+            background-color: #333;
+            color: #ddd;
+            border: 1px solid #555;
+            cursor: pointer;
+            font-family: "Roboto Mono", monospace;
+            transition: background-color 0.2s, color 0.2s;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab-button:not(:last-child) { border-right: none; }
+        .tab-button.active {
+            background-color: #BE9905;
+            color: #000;
+            font-weight: bold;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .switch input { display: none; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #555;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider { background-color: #BE9905; }
+        input:checked + .slider:before { transform: translateX(26px); }
+
+        /* Other new UI styles */
+        input[type="datetime-local"] {
+            width: 100%;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 5px;
+            font-family: "Roboto Mono", monospace;
+        }
+        #sim-time-display {
+            font-size: 1.1em;
+            color: #BE9905;
+            text-align: center;
+            padding: 10px;
+            background: #222;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .stat-bar {
+            width: 100%;
+            background-color: #333;
+            border-radius: 3px;
+            margin: 2px 0 8px 0;
+            overflow: hidden;
+        }
+        .stat-bar-fill {
+            height: 10px;
+            background-color: #BE9905;
+            width: 0%;
+            transition: width 0.5s ease-out;
+            border-radius: 3px;
+        }
+        .sat-1-color { color: #ff5252; }
+        .sat-2-color { color: #00e676; }
+        .sat-3-color { color: #3d5afe; }
+
+    </style>
+</head>
+<body>
+
+    <div id="panel-container">
+        <div id="info">
+            <h1>Coverage Visualiser</h1>
+            
+            <div class="tabs">
+                <button class="tab-button active" onclick="openTab(event, 'sat-1')">Sat 1</button>
+                <button class="tab-button" onclick="openTab(event, 'sat-2')">Sat 2</button>
+                <button class="tab-button" onclick="openTab(event, 'sat-3')">Sat 3</button>
+                <button class="tab-button" onclick="openTab(event, 'sim')">Sim</button>
+            </div>
+
+            <div id="sat-1" class="tab-content active">
+                <h2 class="sat-1-color">SATELLITE 1 ORBIT</h2>
+                <div class="control-group">
+                    <label for="a-1">Semi-major Axis (<i>a</i>) <span class="value" id="a-1_val"></span> km</label>
+                    <input type="range" id="a-1" min="6600" max="50000" step="100" value="26600">
+                </div>
+                <div class="control-group">
+                    <label for="e-1">Eccentricity (<i>e</i>) <span class="value" id="e-1_val"></span></label>
+                    <input type="range" id="e-1" min="0" max="0.95" step="0.001" value="0.74">
+                </div>
+                <div class="control-group">
+                    <label for="i-1">Inclination (<i>i</i>) <span class="value" id="i-1_val"></span>°</label>
+                    <input type="range" id="i-1" min="0" max="180" step="0.1" value="63.4">
+                </div>
+                <div class="control-group">
+                    <label for="raan-1">RAAN (<i>Ω</i>) <span class="value" id="raan-1_val"></span>°</label>
+                    <input type="range" id="raan-1" min="0" max="360" step="0.1" value="0">
+                </div>
+                <div class="control-group">
+                    <label for="aop-1">Argument of Perigee (<i>ω</i>) <span class="value" id="aop-1_val"></span>°</label>
+                    <input type="range" id="aop-1" min="0" max="360" step="0.1" value="270">
+                </div>
+                <div class="control-group">
+                    <label for="m0-1">Initial Mean Anomaly (<i>M<sub>0</sub></i>) <span class="value" id="m0-1_val"></span>°</label>
+                    <input type="range" id="m0-1" min="0" max="360" step="0.1" value="0">
+                </div>
+                <div id="perigee_warning-1" class="warning"></div>
+
+                <h2 class="sat-1-color">SATELLITE 1 COVERAGE</h2>
+                <div class="control-group">
+                    <label for="fov-1">Field of View (<i>FOV</i>) <span class="value" id="fov-1_val"></span>°</label>
+                    <input type="range" id="fov-1" min="1" max="120" step="1" value="45">
+                </div>
+                <div class="toggle-switch">
+                    <label>Show Ground Track</label>
+                    <label class="switch">
+                        <input type="checkbox" id="track-1" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-switch">
+                    <label>Show Coverage Area</label>
+                    <label class="switch">
+                        <input type="checkbox" id="cov-1" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <h2 class="sat-1-color">SATELLITE 1 STATE</h2>
+                <div class="display-group">
+                    <div class="display-item"><span class="display-label">True Anomaly (<i>&nu;</i>)</span><span class="display-value" id="nu_val-1">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val-1">0 km</span></div>
+                </div>
+            </div>
+
+            <div id="sat-2" class="tab-content">
+                <h2 class="sat-2-color">SATELLITE 2 ORBIT</h2>
+                <div class="control-group">
+                    <label for="a-2">Semi-major Axis (<i>a</i>) <span class="value" id="a-2_val"></span> km</label>
+                    <input type="range" id="a-2" min="6600" max="50000" step="100" value="26600">
+                </div>
+                <div class="control-group">
+                    <label for="e-2">Eccentricity (<i>e</i>) <span class="value" id="e-2_val"></span></label>
+                    <input type="range" id="e-2" min="0" max="0.95" step="0.001" value="0.74">
+                </div>
+                <div class="control-group">
+                    <label for="i-2">Inclination (<i>i</i>) <span class="value" id="i-2_val"></span>°</label>
+                    <input type="range" id="i-2" min="0" max="180" step="0.1" value="63.4">
+                </div>
+                <div class="control-group">
+                    <label for="raan-2">RAAN (<i>Ω</i>) <span class="value" id="raan-2_val"></span>°</label>
+                    <input type="range" id="raan-2" min="0" max="360" step="0.1" value="120">
+                </div>
+                <div class="control-group">
+                    <label for="aop-2">Argument of Perigee (<i>ω</i>) <span class="value" id="aop-2_val"></span>°</label>
+                    <input type="range" id="aop-2" min="0" max="360" step="0.1" value="270">
+                </div>
+                <div class="control-group">
+                    <label for="m0-2">Initial Mean Anomaly (<i>M<sub>0</sub></i>) <span class="value" id="m0-2_val"></span>°</label>
+                    <input type="range" id="m0-2" min="0" max="360" step="0.1" value="0">
+                </div>
+                <div id="perigee_warning-2" class="warning"></div>
+
+                <h2 class="sat-2-color">SATELLITE 2 COVERAGE</h2>
+                <div class="control-group">
+                    <label for="fov-2">Field of View (<i>FOV</i>) <span class="value" id="fov-2_val"></span>°</label>
+                    <input type="range" id="fov-2" min="1" max="120" step="1" value="45">
+                </div>
+                <div class="toggle-switch">
+                    <label>Show Ground Track</label>
+                    <label class="switch">
+                        <input type="checkbox" id="track-2" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-switch">
+                    <label>Show Coverage Area</label>
+                    <label class="switch">
+                        <input type="checkbox" id="cov-2" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <h2 class="sat-2-color">SATELLITE 2 STATE</h2>
+                <div class="display-group">
+                    <div class="display-item"><span class="display-label">True Anomaly (<i>&nu;</i>)</span><span class="display-value" id="nu_val-2">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val-2">0 km</span></div>
+                </div>
+            </div>
+
+            <div id="sat-3" class="tab-content">
+                <h2 class="sat-3-color">SATELLITE 3 ORBIT</h2>
+                <div class="control-group">
+                    <label for="a-3">Semi-major Axis (<i>a</i>) <span class="value" id="a-3_val"></span> km</label>
+                    <input type="range" id="a-3" min="6600" max="50000" step="100" value="26600">
+                </div>
+                <div class="control-group">
+                    <label for="e-3">Eccentricity (<i>e</i>) <span class="value" id="e-3_val"></span></label>
+                    <input type="range" id="e-3" min="0" max="0.95" step="0.001" value="0.74">
+                </div>
+                <div class="control-group">
+                    <label for="i-3">Inclination (<i>i</i>) <span class="value" id="i-3_val"></span>°</label>
+                    <input type="range" id="i-3" min="0" max="180" step="0.1" value="63.4">
+                </div>
+                <div class="control-group">
+                    <label for="raan-3">RAAN (<i>Ω</i>) <span class="value" id="raan-3_val"></span>°</label>
+                    <input type="range" id="raan-3" min="0" max="360" step="0.1" value="240">
+                </div>
+                <div class="control-group">
+                    <label for="aop-3">Argument of Perigee (<i>ω</i>) <span class="value" id="aop-3_val"></span>°</label>
+                    <input type="range" id="aop-3" min="0" max="360" step="0.1" value="270">
+                </div>
+                <div class="control-group">
+                    <label for="m0-3">Initial Mean Anomaly (<i>M<sub>0</sub></i>) <span class="value" id="m0-3_val"></span>°</label>
+                    <input type="range" id="m0-3" min="0" max="360" step="0.1" value="0">
+                </div>
+                <div id="perigee_warning-3" class="warning"></div>
+
+                <h2 class="sat-3-color">SATELLITE 3 COVERAGE</h2>
+                <div class="control-group">
+                    <label for="fov-3">Field of View (<i>FOV</i>) <span class="value" id="fov-3_val"></span>°</label>
+                    <input type="range" id="fov-3" min="1" max="120" step="1" value="45">
+                </div>
+                <div class="toggle-switch">
+                    <label>Show Ground Track</label>
+                    <label class="switch">
+                        <input type="checkbox" id="track-3" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-switch">
+                    <label>Show Coverage Area</label>
+                    <label class="switch">
+                        <input type="checkbox" id="cov-3" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <h2 class="sat-3-color">SATELLITE 3 STATE</h2>
+                <div class="display-group">
+                    <div class="display-item"><span class="display-label">True Anomaly (<i>&nu;</i>)</span><span class="display-value" id="nu_val-3">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val-3">0 km</span></div>
+                </div>
+            </div>
+
+            <div id="sim" class="tab-content">
+                <h2>SIMULATION CONTROLS</h2>
+                <div class="control-group">
+                    <label for="epoch">Epoch (UTC)</label>
+                    <input type="datetime-local" id="epoch">
+                </div>
+                <div class="control-group">
+                    <label for="speed">Simulation Speed <span class="value" id="speed_val">x500</span></label>
+                    <input type="range" id="speed" min="0" max="5000" step="1" value="500">
+                </div>
+                <h2>SIMULATION STATE</h2>
+                <div id="sim-time-display"></div>
+            </div>
+
+            <div id="coverage-stats">
+                <h2>COVERAGE STATISTICS</h2>
+                <div class="display-item">
+                    <span class="display-label">0 Satellites</span>
+                    <span class="display-value" id="stat-0">0.0%</span>
+                </div>
+                <div class="stat-bar"><div id="stat-bar-0" class="stat-bar-fill"></div></div>
+                
+                <div class="display-item">
+                    <span class="display-label">1 Satellite</span>
+                    <span class="display-value" id="stat-1">0.0%</span>
+                </div>
+                <div class="stat-bar"><div id="stat-bar-1" class="stat-bar-fill"></div></div>
+
+                <div class="display-item">
+                    <span class="display-label">2 Satellites</span>
+                    <span class="display-value" id="stat-2">0.0%</span>
+                </div>
+                <div class="stat-bar"><div id="stat-bar-2" class="stat-bar-fill"></div></div>
+
+                <div class="display-item">
+                    <span class="display-label">3 Satellites</span>
+                    <span class="display-value" id="stat-3">0.0%</span>
+                </div>
+                <div class="stat-bar"><div id="stat-bar-3" class="stat-bar-fill"></div></div>
+            </div>
+
+        </div>
+        <button id="toggle-button" title="Toggle Controls">◀</button>
+    </div>
+    
+    <div id="map-container">
+        <canvas id="heatmap-canvas" width="180" height="90"></canvas>
+        <svg id="map-svg"></svg>
+    </div>
+
+    <script id="stats-worker" type="text/worker">
+        // --- Constants (must be redefined in worker) ---
+        const EARTH_RADIUS_KM = 6378.137;
+        const DEG_TO_RAD = Math.PI / 180;
+        const RAD_TO_DEG = 180 / Math.PI;
+
+        /**
+         * Checks if a point on Earth's surface is visible to a satellite.
+         * All inputs must be pre-calculated for performance.
+         */
+        function isPointVisible(pointECEF, satPos, r_sat, nadir, nadirMag, fov_rad, horizon_angle_rad) {
+            // 1. Horizon Check
+            const dot_center = pointECEF.x * satPos.x + 
+                               pointECEF.y * satPos.y + 
+                               pointECEF.z * satPos.z;
+            const angle_center_sq_cos = dot_center / (EARTH_RADIUS_KM * r_sat);
+            // Clamp to avoid floating point errors with acos
+            const angle_center = Math.acos(Math.max(-1, Math.min(1, angle_center_sq_cos)));
+            
+            if (angle_center > horizon_angle_rad) {
+                return false; // Point is behind the horizon
+            }
+            
+            // 2. FOV Check
+            const vec_sat_to_point = {
+                x: pointECEF.x - satPos.x,
+                y: pointECEF.y - satPos.y,
+                z: pointECEF.z - satPos.z
+            };
+            const satToPointMag = Math.sqrt(vec_sat_to_point.x**2 + vec_sat_to_point.y**2 + vec_sat_to_point.z**2);
+
+            const dot_fov = vec_sat_to_point.x * nadir.x + 
+                            vec_sat_to_point.y * nadir.y + 
+                            vec_sat_to_point.z * nadir.z;
+            const angle_fov_sq_cos = dot_fov / (satToPointMag * nadirMag);
+            const angle_fov = Math.acos(Math.max(-1, Math.min(1, angle_fov_sq_cos)));
+
+            return angle_fov <= fov_rad;
+        }
+
+        function latLonToECEF(lat_deg, lon_deg, alt_km) {
+            const lat_rad = lat_deg * DEG_TO_RAD;
+            const lon_rad = lon_deg * DEG_TO_RAD;
+            const r = alt_km; // Assume on surface
+            
+            return {
+                x: r * Math.cos(lat_rad) * Math.cos(lon_rad),
+                y: r * Math.cos(lat_rad) * Math.sin(lon_rad),
+                z: r * Math.sin(lat_rad)
+            };
+        }
+
+        // --- Worker Message Handler ---
+        self.onmessage = function(e) {
+            const satParams = e.data;
+            const numSamples = 5000;
+            let counts = [0, 0, 0, 0];
+
+            if (satParams.length === 0) {
+                postMessage(counts);
+                return;
+            }
+
+            for (let i = 0; i < numSamples; i++) {
+                // Generate random point uniformly on sphere
+                const u = Math.random();
+                const v = Math.random();
+                const lon = 360 * u - 180;
+                const lat = Math.acos(2 * v - 1) * RAD_TO_DEG - 90;
+                
+                const pointECEF = latLonToECEF(lat, lon, EARTH_RADIUS_KM);
+                let coverageCount = 0;
+                
+                satParams.forEach(params => {
+                    if (isPointVisible(pointECEF, params.satPos, params.r_sat, params.nadir, params.nadirMag, params.fov_rad, params.horizon_angle_rad)) {
+                        coverageCount++;
+                    }
+                });
+                counts[coverageCount]++;
+            }
+
+            // Send result back to main thread
+            postMessage({counts, numSamples});
+        };
+    </script>
+    
+    <script>
+        // --- Constants ---
+        const EARTH_RADIUS_KM = 6378.137; // WGS-84 Equatorial Radius
+        const MU_EARTH = 398600.4418; // km^3/s^2
+        const J2_COEFF = 0.00108262668; // J2 gravitational coefficient
+        const EARTH_ROTATION_RAD_S = 7.2921150e-5; // Earth rotation rate (rad/s)
+        const DEG_TO_RAD = Math.PI / 180;
+        const RAD_TO_DEG = 180 / Math.PI;
+
+        // --- Global State ---
+        let svg, projection, path, graticule;
+        let heatmapCtx, heatmapWidth, heatmapHeight;
+        let lastTimestamp = 0;
+        let epochDate = new Date();
+        let currentSimDate = new Date();
+        let epochGST = 0; // Greenwich Sidereal Time at epoch
+        let elapsedSimSeconds = 0;
+        let satelliteStates = [{}, {}, {}]; // To store { ecef, latLon, period, ... }
+        let groundTracks = [[], [], []]; // Will store [lon, lat, timestamp]
+        let lastStatsUpdateTime = 0;
+        let statsWorker;
+        let pixelToGeoCache = []; // NEW: Cache for heatmap pixels
+
+        // --- DOM Elements ---
+        const dom = {
+            infoDiv: document.getElementById('info'),
+            toggleButton: document.getElementById('toggle-button'),
+            mapContainer: document.getElementById('map-container'),
+            heatmapCanvas: document.getElementById('heatmap-canvas'),
+            mapSvg: document.getElementById('map-svg'),
+            epochInput: document.getElementById('epoch'),
+            speedSlider: document.getElementById('speed'),
+            speedValue: document.getElementById('speed_val'),
+            simTimeDisplay: document.getElementById('sim-time-display'),
+            stats: {
+                val: [
+                    document.getElementById('stat-0'), 
+                    document.getElementById('stat-1'), 
+                    document.getElementById('stat-2'), 
+                    document.getElementById('stat-3')
+                ],
+                bar: [
+                    document.getElementById('stat-bar-0'),
+                    document.getElementById('stat-bar-1'),
+                    document.getElementById('stat-bar-2'),
+                    document.getElementById('stat-bar-3')
+                ]
+            },
+            sats: [1, 2, 3].map(i => ({
+                a: document.getElementById(`a-${i}`),
+                e: document.getElementById(`e-${i}`),
+                i: document.getElementById(`i-${i}`),
+                raan: document.getElementById(`raan-${i}`),
+                aop: document.getElementById(`aop-${i}`),
+                m0: document.getElementById(`m0-${i}`), // NEW
+                fov: document.getElementById(`fov-${i}`),
+                track: document.getElementById(`track-${i}`),
+                cov: document.getElementById(`cov-${i}`), // NEW
+                val: {
+                    a: document.getElementById(`a-${i}_val`),
+                    e: document.getElementById(`e-${i}_val`),
+                    i: document.getElementById(`i-${i}_val`),
+                    raan: document.getElementById(`raan-${i}_val`),
+                    aop: document.getElementById(`aop-${i}_val`),
+                    m0: document.getElementById(`m0-${i}_val`), // NEW
+                    fov: document.getElementById(`fov-${i}_val`),
+                    nu: document.getElementById(`nu_val-${i}`), // NEW
+                    alt: document.getElementById(`alt_val-${i}`) // NEW
+                },
+                warning: document.getElementById(`perigee_warning-${i}`)
+            }))
+        };
+
+        // --- Main Init Function ---
+        function init() {
+            setupUI();
+            initStatsWorker();
+            initMap();
+            resetSimulation();
+            requestAnimationFrame(simulationLoop);
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        // --- UI Setup ---
+        function setupUI() {
+            // Toggle Button
+            dom.toggleButton.addEventListener('click', () => {
+                dom.infoDiv.classList.toggle('collapsed');
+                dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
+            });
+
+            // Set initial epoch
+            const now = new Date();
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+            now.setMilliseconds(null);
+            now.setSeconds(null);
+            dom.epochInput.value = now.toISOString().slice(0, 16);
+            dom.epochInput.addEventListener('change', resetSimulation);
+            
+            // Simulation speed
+            dom.speedSlider.addEventListener('input', () => {
+                dom.speedValue.textContent = `x${dom.speedSlider.value}`;
+            });
+
+            // Satellite control sliders
+            dom.sats.forEach((sat, index) => {
+                const updateFn = () => updateSatelliteUI(index);
+                sat.a.addEventListener('input', updateFn);
+                sat.e.addEventListener('input', updateFn);
+                sat.i.addEventListener('input', updateFn);
+                sat.raan.addEventListener('input', updateFn);
+                sat.aop.addEventListener('input', updateFn);
+                sat.m0.addEventListener('input', updateFn); // NEW
+                sat.fov.addEventListener('input', updateFn);
+                sat.track.addEventListener('change', () => {
+                    if (!sat.track.checked) {
+                        groundTracks[index] = []; // Clear track on toggle off
+                        d3.select(`#track-${index}`).datum({ type: "LineString", coordinates: [] }).attr('d', path);
+                    }
+                });
+                updateSatelliteUI(index); // Set initial values
+            });
+        }
+        
+        function updateSatelliteUI(index) {
+            const sat = dom.sats[index];
+            const a = parseFloat(sat.a.value);
+            const e = parseFloat(sat.e.value);
+            
+            sat.val.a.textContent = a.toFixed(0);
+            sat.val.e.textContent = e.toFixed(3);
+            sat.val.i.textContent = parseFloat(sat.i.value).toFixed(1);
+            sat.val.raan.textContent = parseFloat(sat.raan.value).toFixed(1);
+            sat.val.aop.textContent = parseFloat(sat.aop.value).toFixed(1);
+            sat.val.m0.textContent = parseFloat(sat.m0.value).toFixed(1); // NEW
+            sat.val.fov.textContent = `${sat.fov.value}°`;
+            
+            // Perigee Warning (from original file)
+            const perigee_alt = a * (1 - e) - EARTH_RADIUS_KM;
+            sat.warning.className = 'warning'; sat.warning.textContent = '';
+            if (perigee_alt < 80) {
+                sat.warning.classList.add('red'); sat.warning.textContent = 'WARNING: Atmospheric re-entry!';
+            } else if (perigee_alt < 250) {
+                sat.warning.classList.add('amber'); sat.warning.textContent = 'CAUTION: High atmospheric drag.';
+            }
+        }
+
+        function openTab(evt, tabName) {
+            let i, tabcontent, tabbuttons;
+            tabcontent = document.getElementsByClassName("tab-content");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            tabbuttons = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tabbuttons.length; i++) {
+                tabbuttons[i].className = tabbuttons[i].className.replace(" active", "");
+            }
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+
+        // --- Stats Worker Setup ---
+        function initStatsWorker() {
+            try {
+                const blob = new Blob([document.getElementById('stats-worker').textContent], { type: 'application/javascript' });
+                statsWorker = new Worker(URL.createObjectURL(blob));
+                
+                statsWorker.onmessage = function(e) {
+                    const { counts, numSamples } = e.data;
+                    counts.forEach((count, i) => {
+                        const percent = (count / numSamples) * 100;
+                        dom.stats.val[i].textContent = `${percent.toFixed(1)}%`;
+                        dom.stats.bar[i].style.width = `${percent}%`;
+                    });
+                };
+                
+                statsWorker.onerror = function(error) {
+                    console.error("StatsWorker error:", error.message);
+                };
+            } catch (err) {
+                console.error("Failed to initialize Stats Worker:", err);
+            }
+        }
+
+
+        // --- Map Initialization ---
+        function initMap() {
+            svg = d3.select("#map-svg");
+            heatmapCtx = dom.heatmapCanvas.getContext('2d', { willReadFrequently: true });
+            heatmapWidth = dom.heatmapCanvas.width;
+            heatmapHeight = dom.heatmapCanvas.height;
+
+            projection = d3.geoEquirectangular().translate([0, 0]).scale(1);
+            path = d3.geoPath(projection);
+
+            // Create layers
+            svg.append("g").attr("id", "graticule-layer");
+            svg.append("g").attr("id", "coastline-layer"); // CHANGED
+            svg.append("g").attr("id", "track-layer");
+            svg.append("g").attr("id", "satellite-layer");
+
+            // Draw graticule
+            graticule = d3.geoGraticule();
+            svg.select("#graticule-layer").append("path")
+                .datum(graticule)
+                .attr("class", "graticule")
+                .attr("d", path);
+
+            // Load and draw world map (coastlines)
+            d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
+                svg.select("#coastline-layer").append("path") // CHANGED
+                    .datum(topojson.feature(world, world.objects.countries)) // CHANGED
+                    .attr("class", "coastline") // CHANGED
+                    .attr("d", path);
+                onWindowResize(); // Fit map to screen
+            });
+
+            // Add ground track paths
+            svg.select("#track-layer").append("path").attr("id", "track-0").attr("class", "ground-track-1");
+            svg.select("#track-layer").append("path").attr("id", "track-1").attr("class", "ground-track-2");
+            svg.select("#track-layer").append("path").attr("id", "track-2").attr("class", "ground-track-3");
+
+            // Add satellite markers
+            svg.select("#satellite-layer").selectAll(".satellite")
+                .data([0, 1, 2])
+                .enter().append("circle")
+                .attr("id", d => `sat-marker-${d}`)
+                .attr("class", "satellite")
+                .attr("r", 5)
+                .style("fill", d => ["#ff5252", "#00e676", "#3d5afe"][d]);
+            
+            onWindowResize();
+        }
+
+        function updatePixelToGeoCache() {
+            pixelToGeoCache = [];
+            const w = dom.mapContainer.clientWidth;
+            const h = dom.mapContainer.clientHeight;
+
+            for (let y = 0; y < heatmapHeight; y++) {
+                for (let x = 0; x < heatmapWidth; x++) {
+                    // Get [lon, lat] for the center of the pixel
+                    const [lon, lat] = projection.invert([
+                        ((x + 0.5) / heatmapWidth) * w,
+                        ((y + 0.5) / heatmapHeight) * h
+                    ]);
+                    
+                    // NEW: Explicitly ignore anything outside 90/-90 lat
+                    if (isNaN(lon) || isNaN(lat) || lat > 90 || lat < -90) { 
+                        pixelToGeoCache.push(null);
+                    } else {
+                        pixelToGeoCache.push({
+                            ecef: latLonToECEF(lat, lon, EARTH_RADIUS_KM)
+                        });
+                    }
+                }
+            }
+        }
+        
+        function onWindowResize() {
+            const w = dom.mapContainer.clientWidth;
+            const h = dom.mapContainer.clientHeight;
+            
+            // Update SVG
+            svg.attr("width", w).attr("height", h);
+            
+            // Update projection
+            projection.scale(w / (2 * Math.PI) * 0.95).translate([w / 2, h / 2]);
+            
+            // Redraw map elements
+            svg.select(".coastline").attr("d", path); // CHANGED
+            svg.select(".graticule").attr("d", path);
+
+            // Redraw ground tracks and satellites
+            drawMapElements();
+
+            // REBUILD the heatmap cache
+            updatePixelToGeoCache();
+        }
+
+        // --- Simulation ---
+        function resetSimulation() {
+            epochDate = new Date(dom.epochInput.value);
+            if (isNaN(epochDate)) {
+                epochDate = new Date(); // Fallback
+            }
+            currentSimDate = new Date(epochDate.getTime());
+            epochGST = getGST(epochDate);
+            elapsedSimSeconds = 0;
+            
+            // Reset tracks
+            groundTracks = [[], [], []];
+            svg.selectAll(".ground-track-1, .ground-track-2, .ground-track-3")
+               .datum({ type: "LineString", coordinates: [] })
+               .attr("d", path);
+            
+            lastStatsUpdateTime = 0;
+        }
+
+        function simulationLoop(timestamp) {
+            if (lastTimestamp === 0) lastTimestamp = timestamp;
+            const deltaRealTime = (timestamp - lastTimestamp) / 1000.0; // in seconds
+            lastTimestamp = timestamp;
+
+            const speed = parseFloat(dom.speedSlider.value);
+            const deltaSimTime = deltaRealTime * speed; // in seconds
+            
+            if (speed > 0) {
+                currentSimDate.setMilliseconds(currentSimDate.getMilliseconds() + deltaSimTime * 1000);
+            }
+            
+            elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
+            
+            // Update time display
+            dom.simTimeDisplay.textContent = currentSimDate.toUTCString();
+            
+            // Calculate current GST
+            const currentGST = (epochGST + EARTH_ROTATION_RAD_S * elapsedSimSeconds) % (2 * Math.PI);
+
+            // Propagate satellites and pre-calculate coverage params
+            const satCoverageParams = [];
+            dom.sats.forEach((sat, i) => {
+                const state = propagateSatellite(i, elapsedSimSeconds, currentGST);
+                satelliteStates[i] = state;
+
+                // NEW: Update state displays
+                if (state.nu_rad && state.alt_km) {
+                    let nu_deg = state.nu_rad * RAD_TO_DEG;
+                    if (nu_deg < 0) nu_deg += 360;
+                    sat.val.nu.textContent = `${nu_deg.toFixed(1)}°`;
+                    sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
+                }
+
+                // NEW: Check if coverage is enabled
+                if (state.ecef && sat.cov.checked) { 
+                    const fov_rad = parseFloat(sat.fov.value) * DEG_TO_RAD / 2.0;
+                    const satPos = state.ecef;
+                    const r_sat = Math.sqrt(satPos.x**2 + satPos.y**2 + satPos.z**2);
+                    const nadir = { x: -satPos.x, y: -satPos.y, z: -satPos.z };
+                    const horizon_angle_rad = Math.acos(Math.min(1, EARTH_RADIUS_KM / r_sat));
+                    satCoverageParams.push({
+                        satPos, r_sat, fov_rad, nadir, nadirMag: r_sat, horizon_angle_rad
+                    });
+                }
+            });
+
+            // Update visualizations
+            drawMapElements();
+            updateHeatmap(satCoverageParams); // Now fast enough to run every frame
+            
+            const now = performance.now();
+            if (statsWorker && now - lastStatsUpdateTime > 2000) { // Update stats 1/2sec
+                statsWorker.postMessage(satCoverageParams);
+                lastStatsUpdateTime = now;
+            }
+
+            requestAnimationFrame(simulationLoop);
+        }
+
+        function drawMapElements() {
+            satelliteStates.forEach((state, i) => {
+                if (!state.latLon) return;
+                
+                const [lon, lat] = state.latLon;
+                const coords = projection([lon, lat]);
+                
+                // Update marker
+                svg.select(`#sat-marker-${i}`)
+                   .attr("cx", coords[0])
+                   .attr("cy", coords[1])
+                   .style("display", "block");
+                   
+                // Update track
+                if (dom.sats[i].track.checked && state.period) {
+                    const twoOrbitsAgo = elapsedSimSeconds - 2 * state.period;
+                    // Filter old points
+                    groundTracks[i] = groundTracks[i].filter(point => point[2] >= twoOrbitsAgo);
+                    // Add new point
+                    groundTracks[i].push([lon, lat, elapsedSimSeconds]);
+                    
+                    // Create GeoJSON LineString
+                    const lineCoords = groundTracks[i].map(p => [p[0], p[1]]);
+                    const geoJsonLine = { type: "LineString", coordinates: lineCoords };
+                    
+                    // Bind data and draw with path generator
+                    svg.select(`#track-${i}`).datum(geoJsonLine).attr("d", path);
+                }
+            });
+        }
+
+        // --- Coverage Calculation (Heatmap & Stats) ---
+
+        // NEW: Red color palette
+        const heatmapColors = [
+            [0, 0, 0, 0],         // 0 sats (transparent)
+            [255, 100, 100, 100], // 1 sat (light red)
+            [255, 50, 50, 150],   // 2 sats (medium red)
+            [255, 0, 0, 200]      // 3 sats (bright red)
+        ];
+
+        function updateHeatmap(satParams) {
+            const imgData = heatmapCtx.createImageData(heatmapWidth, heatmapHeight);
+            const data = imgData.data;
+            
+            if (pixelToGeoCache.length === 0) {
+                heatmapCtx.clearRect(0, 0, heatmapWidth, heatmapHeight);
+                return;
+            }
+
+            for (let i = 0; i < pixelToGeoCache.length; i++) {
+                const geo = pixelToGeoCache[i];
+                let coverageCount = 0;
+
+                if (geo) {
+                    const pointECEF = geo.ecef;
+                    satParams.forEach(params => {
+                        if (isPointVisible(pointECEF, params.satPos, params.r_sat, params.nadir, params.nadirMag, params.fov_rad, params.horizon_angle_rad)) {
+                            coverageCount++;
+                        }
+                    });
+                }
+                
+                const color = heatmapColors[coverageCount];
+                const dataIndex = i * 4;
+                data[dataIndex] = color[0];
+                data[dataIndex + 1] = color[1];
+                data[dataIndex + 2] = color[2];
+                data[dataIndex + 3] = color[3];
+            }
+            heatmapCtx.putImageData(imgData, 0, 0);
+        }
+
+        /**
+         * Checks if a point on Earth's surface is visible to a satellite.
+         * All inputs must be pre-calculated for performance.
+         */
+        function isPointVisible(pointECEF, satPos, r_sat, nadir, nadirMag, fov_rad, horizon_angle_rad) {
+            // 1. Horizon Check
+            const dot_center = pointECEF.x * satPos.x + 
+                               pointECEF.y * satPos.y + 
+                               pointECEF.z * satPos.z;
+            const angle_center_sq_cos = dot_center / (EARTH_RADIUS_KM * r_sat);
+            const angle_center = Math.acos(Math.max(-1, Math.min(1, angle_center_sq_cos)));
+            
+            if (angle_center > horizon_angle_rad) {
+                return false; // Point is behind the horizon
+            }
+            
+            // 2. FOV Check
+            const vec_sat_to_point = {
+                x: pointECEF.x - satPos.x,
+                y: pointECEF.y - satPos.y,
+                z: pointECEF.z - satPos.z
+            };
+            const satToPointMag = Math.sqrt(vec_sat_to_point.x**2 + vec_sat_to_point.y**2 + vec_sat_to_point.z**2);
+
+            const dot_fov = vec_sat_to_point.x * nadir.x + 
+                            vec_sat_to_point.y * nadir.y + 
+                            vec_sat_to_point.z * nadir.z;
+            const angle_fov_sq_cos = dot_fov / (satToPointMag * nadirMag);
+            const angle_fov = Math.acos(Math.max(-1, Math.min(1, angle_fov_sq_cos)));
+
+            return angle_fov <= fov_rad;
+        }
+
+        // --- Orbital Mechanics ---
+
+        function propagateSatellite(index, elapsedSimSeconds, currentGST) {
+            const params = dom.sats[index];
+            const a = parseFloat(params.a.value);
+            const e = parseFloat(params.e.value);
+            const i_rad = parseFloat(params.i.value) * DEG_TO_RAD;
+            // Get epoch values
+            const raan_0_rad = parseFloat(params.raan.value) * DEG_TO_RAD;
+            const aop_0_rad = parseFloat(params.aop.value) * DEG_TO_RAD;
+            const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD; // NEW
+
+            // 1. Calculate J2 Perturbation Rates
+            const n = Math.sqrt(MU_EARTH / (a**3)); // mean motion
+            const T_period = 2 * Math.PI / n; // Orbital period
+            const p = a * (1 - e**2); // semi-latus rectum
+            const J2_factor = -(3/2) * n * J2_COEFF * (EARTH_RADIUS_KM / p)**2;
+            
+            const raan_dot = J2_factor * Math.cos(i_rad); // rad/s
+            const aop_dot = J2_factor * (5/2 * Math.sin(i_rad)**2 - 2); // rad/s
+            
+            // 2. Calculate current elements
+            const raan_rad = (raan_0_rad + raan_dot * elapsedSimSeconds) % (2 * Math.PI);
+            const aop_rad = (aop_0_rad + aop_dot * elapsedSimSeconds) % (2 * Math.PI);
+            const M_rad = (M_0_rad + n * elapsedSimSeconds) % (2 * Math.PI);
+            
+            // 3. Solve Kepler's Equation for Eccentric Anomaly (E)
+            const E_rad = solveKepler(M_rad, e);
+            
+            // 4. Position in orbital frame (perifocal frame)
+            const x_orb = a * (Math.cos(E_rad) - e);
+            const y_orb = a * Math.sqrt(1 - e**2) * Math.sin(E_rad);
+            
+            // 5. Rotate from orbital frame to ECI frame
+            const cR = Math.cos(raan_rad), sR = Math.sin(raan_rad);
+            const cA = Math.cos(aop_rad), sA = Math.sin(aop_rad);
+            const cI = Math.cos(i_rad), sI = Math.sin(i_rad);
+            
+            // 3-1-3 Rotation Matrix (Orbital -> ECI)
+            const Rxx = cR*cA - sR*sA*cI;
+            const Rxy = -cR*sA - sR*cA*cI;
+            const Ryx = sR*cA + cR*sA*cI;
+            const Ryy = -sR*sA + cR*cA*cI;
+            const Rzx = sA*sI;
+            const Rzy = cA*sI;
+            
+            const eci = {
+                x: Rxx * x_orb + Rxy * y_orb,
+                y: Ryx * x_orb + Ryy * y_orb,
+                z: Rzx * x_orb + Rzy * y_orb
+            };
+            
+            // 6. Rotate from ECI to ECEF (Earth-Fixed)
+            const cG = Math.cos(currentGST), sG = Math.sin(currentGST);
+            const ecef = {
+                x: eci.x * cG + eci.y * sG,
+                y: -eci.x * sG + eci.y * cG,
+                z: eci.z
+            };
+            
+            // 7. Convert ECEF to Lat/Lon
+            const latLon = ecefToLatLon(ecef);
+            
+            // 8. NEW: Calculate current True Anomaly and Altitude for display
+            const nu_rad = Math.atan2(Math.sqrt(1 - e**2) * Math.sin(E_rad), Math.cos(E_rad) - e);
+            const r_mag = a * (1 - e * Math.cos(E_rad));
+            const alt_km = r_mag - EARTH_RADIUS_KM;
+
+            return { eci, ecef, latLon, period: T_period, nu_rad, alt_km };
+        }
+
+        // Kepler's equation solver (from original file)
+        function solveKepler(M, e) {
+            let E = M; const tolerance = 1e-6;
+            for (let i = 0; i < 100; i++) {
+                const f = E - e * Math.sin(E) - M;
+                const f_prime = 1 - e * Math.cos(E);
+                const delta = f / f_prime; E -= delta;
+                if (Math.abs(delta) < tolerance) return E;
+            }
+            return E;
+        }
+
+        // --- Coordinate Transforms ---
+
+        function ecefToLatLon(ecef) {
+            const lon_rad = Math.atan2(ecef.y, eci.x); // ERROR FOUND: eci.x should be ecef.x
+            const p = Math.sqrt(ecef.x**2 + ecef.y**2);
+            const lat_rad = Math.atan2(ecef.z, p);
+            // We ignore altitude for this 2D map
+            return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG];
+        }
+        
+        // --- CORRECTED ecefToLatLon ---
+        function ecefToLatLon(ecef) {
+            const lon_rad = Math.atan2(ecef.y, ecef.x); // CORRECTED
+            const p = Math.sqrt(ecef.x**2 + ecef.y**2);
+            const lat_rad = Math.atan2(ecef.z, p);
+            return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG];
+        }
+        
+        function latLonToECEF(lat_deg, lon_deg, alt_km) {
+            const lat_rad = lat_deg * DEG_TO_RAD;
+            const lon_rad = lon_deg * DEG_TO_RAD;
+            const r = alt_km; // Assume on surface
+            
+            return {
+                x: r * Math.cos(lat_rad) * Math.cos(lon_rad),
+                y: r * Math.cos(lat_rad) * Math.sin(lon_rad),
+                z: r * Math.sin(lat_rad)
+            };
+        }
+        
+        /**
+         * Calculates Greenwich Sidereal Time (GST) for a given Date object.
+         * Formula from Vallado, "Fundamentals of Astrodynamics and Applications".
+         */
+        function getGST(date) {
+            const JD = (date.getTime() / 86400000.0) + 2440587.5; // Julian Date
+            const T_UT1 = (JD - 2451545.0) / 36525.0;
+            
+            // Greenwich mean sidereal time (in degrees)
+            let GMST_deg = 280.46061837 + 360.98564736629 * (JD - 2451545.0) +
+                           0.000387933 * T_UT1**2 - T_UT1**3 / 38710000.0;
+            
+            GMST_deg = GMST_deg % 360;
+            if (GMST_deg < 0) GMST_deg += 360;
+            
+            return GMST_deg * DEG_TO_RAD;
+        }
+
+        // --- Start Application ---
+        init();
+
+    </script>
+</body>
+</html>
