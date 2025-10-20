@@ -877,7 +877,7 @@
             // Load and draw world map (coastlines)
             d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
                 svg.select("#coastline-layer").append("path") 
-                    .datum(topojson.feature(world, world.objects.countries)) 
+                    .datum(topojson.feature(world, world.objects.land)) 
                     .attr("class", "coastline") 
                     .attr("d", path);
                 onWindowResize(); // Fit map to screen
