@@ -182,7 +182,6 @@
             width: 100%;
             height: 100%;
             z-index: 1;
-            /* image-rendering: pixelated; -- REMOVED for smoothing */
         }
 
         #map-svg {
@@ -311,7 +310,7 @@
         .sat-2-color { color: #00e676; }
         .sat-3-color { color: #3d5afe; }
 
-        /* NEW Button Style */
+        /* Button Style */
         .sim-button {
             width: 100%;
             padding: 10px;
@@ -358,12 +357,12 @@
                     <input type="range" id="i-1" min="0" max="180" step="0.1" value="63.4">
                 </div>
                 <div class="control-group">
-                    <label for="raan-1">RAAN (<i>Ω</i>) <span class="value" id="raan-1_val"></span>°</label>
-                    <input type="range" id="raan-1" min="0" max="360" step="0.1" value="0">
+                    <label for="raan_0-1">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-1_val"></span>°</label>
+                    <input type="range" id="raan_0-1" min="0" max="360" step="0.1" value="0">
                 </div>
                 <div class="control-group">
-                    <label for="aop-1">Argument of Perigee (<i>ω</i>) <span class="value" id="aop-1_val"></span>°</label>
-                    <input type="range" id="aop-1" min="0" max="360" step="0.1" value="270">
+                    <label for="aop_0-1">Initial Argument of Perigee (<i>ω<sub>0</sub></i>) <span class="value" id="aop_0-1_val"></span>°</label>
+                    <input type="range" id="aop_0-1" min="0" max="360" step="0.1" value="270">
                 </div>
                 <div class="control-group">
                     <label for="m0-1">Initial Mean Anomaly (<i>M<sub>0</sub></i>) <span class="value" id="m0-1_val"></span>°</label>
@@ -395,6 +394,10 @@
                 <div class="display-group">
                     <div class="display-item"><span class="display-label">True Anomaly (<i>&nu;</i>)</span><span class="display-value" id="nu_val-1">0.0°</span></div>
                     <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val-1">0 km</span></div>
+                    <div class="display-item"><span class="display-label">Current RAAN (<i>Ω</i>)</span><span class="display-value" id="raan_val-1">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">Current AoP (<i>ω</i>)</span><span class="display-value" id="aop_val-1">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">RAAN Rate (<i>Ω̇</i>)</span><span class="display-value" id="raan_dot_val-1">0.0°/day</span></div>
+                    <div class="display-item"><span class="display-label">AoP Rate (<i>ω̇</i>)</span><span class="display-value" id="aop_dot_val-1">0.0°/day</span></div>
                 </div>
             </div>
 
@@ -413,12 +416,12 @@
                     <input type="range" id="i-2" min="0" max="180" step="0.1" value="63.4">
                 </div>
                 <div class="control-group">
-                    <label for="raan-2">RAAN (<i>Ω</i>) <span class="value" id="raan-2_val"></span>°</label>
-                    <input type="range" id="raan-2" min="0" max="360" step="0.1" value="120">
+                    <label for="raan_0-2">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-2_val"></span>°</label>
+                    <input type="range" id="raan_0-2" min="0" max="360" step="0.1" value="120">
                 </div>
                 <div class="control-group">
-                    <label for="aop-2">Argument of Perigee (<i>ω</i>) <span class="value" id="aop-2_val"></span>°</label>
-                    <input type="range" id="aop-2" min="0" max="360" step="0.1" value="270">
+                    <label for="aop_0-2">Initial Argument of Perigee (<i>ω<sub>0</sub></i>) <span class="value" id="aop_0-2_val"></span>°</label>
+                    <input type="range" id="aop_0-2" min="0" max="360" step="0.1" value="270">
                 </div>
                 <div class="control-group">
                     <label for="m0-2">Initial Mean Anomaly (<i>M<sub>0</sub></i>) <span class="value" id="m0-2_val"></span>°</label>
@@ -450,6 +453,10 @@
                 <div class="display-group">
                     <div class="display-item"><span class="display-label">True Anomaly (<i>&nu;</i>)</span><span class="display-value" id="nu_val-2">0.0°</span></div>
                     <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val-2">0 km</span></div>
+                    <div class="display-item"><span class="display-label">Current RAAN (<i>Ω</i>)</span><span class="display-value" id="raan_val-2">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">Current AoP (<i>ω</i>)</span><span class="display-value" id="aop_val-2">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">RAAN Rate (<i>Ω̇</i>)</span><span class="display-value" id="raan_dot_val-2">0.0°/day</span></div>
+                    <div class="display-item"><span class="display-label">AoP Rate (<i>ω̇</i>)</span><span class="display-value" id="aop_dot_val-2">0.0°/day</span></div>
                 </div>
             </div>
 
@@ -468,12 +475,12 @@
                     <input type="range" id="i-3" min="0" max="180" step="0.1" value="63.4">
                 </div>
                 <div class="control-group">
-                    <label for="raan-3">RAAN (<i>Ω</i>) <span class="value" id="raan-3_val"></span>°</label>
-                    <input type="range" id="raan-3" min="0" max="360" step="0.1" value="240">
+                    <label for="raan_0-3">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-3_val"></span>°</label>
+                    <input type="range" id="raan_0-3" min="0" max="360" step="0.1" value="240">
                 </div>
                 <div class="control-group">
-                    <label for="aop-3">Argument of Perigee (<i>ω</i>) <span class="value" id="aop-3_val"></span>°</label>
-                    <input type="range" id="aop-3" min="0" max="360" step="0.1" value="270">
+                    <label for="aop_0-3">Initial Argument of Perigee (<i>ω<sub>0</sub></i>) <span class="value" id="aop_0-3_val"></span>°</label>
+                    <input type="range" id="aop_0-3" min="0" max="360" step="0.1" value="270">
                 </div>
                 <div class="control-group">
                     <label for="m0-3">Initial Mean Anomaly (<i>M<sub>0</sub></i>) <span class="value" id="m0-3_val"></span>°</label>
@@ -505,6 +512,10 @@
                 <div class="display-group">
                     <div class="display-item"><span class="display-label">True Anomaly (<i>&nu;</i>)</span><span class="display-value" id="nu_val-3">0.0°</span></div>
                     <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val-3">0 km</span></div>
+                    <div class="display-item"><span class="display-label">Current RAAN (<i>Ω</i>)</span><span class="display-value" id="raan_val-3">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">Current AoP (<i>ω</i>)</span><span class="display-value" id="aop_val-3">0.0°</span></div>
+                    <div class="display-item"><span class="display-label">RAAN Rate (<i>Ω̇</i>)</span><span class="display-value" id="raan_dot_val-3">0.0°/day</span></div>
+                    <div class="display-item"><span class="display-label">AoP Rate (<i>ω̇</i>)</span><span class="display-value" id="aop_dot_val-3">0.0°/day</span></div>
                 </div>
             </div>
 
@@ -556,7 +567,8 @@
     </div>
     
     <div id="map-container">
-        <canvas id="heatmap-canvas" width="360" height="180"></canvas> <svg id="map-svg"></svg>
+        <canvas id="heatmap-canvas" width="360" height="180"></canvas>
+        <svg id="map-svg"></svg>
     </div>
 
     <script id="stats-worker" type="text/worker">
@@ -679,7 +691,7 @@
             speedSlider: document.getElementById('speed'),
             speedValue: document.getElementById('speed_val'),
             simTimeDisplay: document.getElementById('sim-time-display'),
-            resetSimBtn: document.getElementById('reset-sim-btn'), // NEW
+            resetSimBtn: document.getElementById('reset-sim-btn'),
             stats: {
                 val: [
                     document.getElementById('stat-0'), 
@@ -698,8 +710,8 @@
                 a: document.getElementById(`a-${i}`),
                 e: document.getElementById(`e-${i}`),
                 i: document.getElementById(`i-${i}`),
-                raan: document.getElementById(`raan-${i}`),
-                aop: document.getElementById(`aop-${i}`),
+                raan_0: document.getElementById(`raan_0-${i}`), // MODIFIED
+                aop_0: document.getElementById(`aop_0-${i}`), // MODIFIED
                 m0: document.getElementById(`m0-${i}`), 
                 fov: document.getElementById(`fov-${i}`),
                 track: document.getElementById(`track-${i}`),
@@ -708,12 +720,17 @@
                     a: document.getElementById(`a-${i}_val`),
                     e: document.getElementById(`e-${i}_val`),
                     i: document.getElementById(`i-${i}_val`),
-                    raan: document.getElementById(`raan-${i}_val`),
-                    aop: document.getElementById(`aop-${i}_val`),
+                    raan_0: document.getElementById(`raan_0-${i}_val`), // MODIFIED
+                    aop_0: document.getElementById(`aop_0-${i}_val`), // MODIFIED
                     m0: document.getElementById(`m0-${i}_val`), 
                     fov: document.getElementById(`fov-${i}_val`),
                     nu: document.getElementById(`nu_val-${i}`), 
-                    alt: document.getElementById(`alt_val-${i}`) 
+                    alt: document.getElementById(`alt_val-${i}`),
+                    // NEW
+                    raan_current: document.getElementById(`raan_val-${i}`),
+                    aop_current: document.getElementById(`aop_val-${i}`),
+                    raan_dot: document.getElementById(`raan_dot_val-${i}`),
+                    aop_dot: document.getElementById(`aop_dot_val-${i}`)
                 },
                 warning: document.getElementById(`perigee_warning-${i}`)
             }))
@@ -750,7 +767,7 @@
                 dom.speedValue.textContent = `x${dom.speedSlider.value}`;
             });
 
-            // NEW: Reset button
+            // Reset button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
 
             // Satellite control sliders
@@ -759,8 +776,8 @@
                 sat.a.addEventListener('input', updateFn);
                 sat.e.addEventListener('input', updateFn);
                 sat.i.addEventListener('input', updateFn);
-                sat.raan.addEventListener('input', updateFn);
-                sat.aop.addEventListener('input', updateFn);
+                sat.raan_0.addEventListener('input', updateFn); // MODIFIED
+                sat.aop_0.addEventListener('input', updateFn); // MODIFIED
                 sat.m0.addEventListener('input', updateFn); 
                 sat.fov.addEventListener('input', updateFn);
                 sat.track.addEventListener('change', () => {
@@ -781,8 +798,8 @@
             sat.val.a.textContent = a.toFixed(0);
             sat.val.e.textContent = e.toFixed(3);
             sat.val.i.textContent = parseFloat(sat.i.value).toFixed(1);
-            sat.val.raan.textContent = parseFloat(sat.raan.value).toFixed(1);
-            sat.val.aop.textContent = parseFloat(sat.aop.value).toFixed(1);
+            sat.val.raan_0.textContent = parseFloat(sat.raan_0.value).toFixed(1); // MODIFIED
+            sat.val.aop_0.textContent = parseFloat(sat.aop_0.value).toFixed(1); // MODIFIED
             sat.val.m0.textContent = parseFloat(sat.m0.value).toFixed(1); 
             sat.val.fov.textContent = `${sat.fov.value}°`;
             
@@ -838,8 +855,8 @@
         function initMap() {
             svg = d3.select("#map-svg");
             heatmapCtx = dom.heatmapCanvas.getContext('2d', { willReadFrequently: true });
-            heatmapWidth = dom.heatmapCanvas.width; // Reads 360
-            heatmapHeight = dom.heatmapCanvas.height; // Reads 180
+            heatmapWidth = dom.heatmapCanvas.width;
+            heatmapHeight = dom.heatmapCanvas.height;
 
             projection = d3.geoEquirectangular().translate([0, 0]).scale(1);
             path = d3.geoPath(projection);
@@ -976,11 +993,19 @@
                 satelliteStates[i] = state;
 
                 // Update state displays
-                if (state.nu_rad && state.alt_km) {
+                if (state.nu_rad !== undefined && state.alt_km !== undefined) {
                     let nu_deg = state.nu_rad * RAD_TO_DEG;
                     if (nu_deg < 0) nu_deg += 360;
                     sat.val.nu.textContent = `${nu_deg.toFixed(1)}°`;
                     sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
+                }
+
+                // MODIFIED: Update RAAN and AOP displays
+                if (state.current_raan_rad !== undefined) { 
+                    sat.val.raan_current.textContent = `${(state.current_raan_rad * RAD_TO_DEG).toFixed(2)}°`;
+                    sat.val.aop_current.textContent = `${(state.current_aop_rad * RAD_TO_DEG).toFixed(2)}°`;
+                    sat.val.raan_dot.textContent = `${state.raan_dot_deg_day.toFixed(3)}°/day`;
+                    sat.val.aop_dot.textContent = `${state.aop_dot_deg_day.toFixed(3)}°/day`;
                 }
 
                 // Check if coverage is enabled
@@ -1123,8 +1148,8 @@
             const e = parseFloat(params.e.value);
             const i_rad = parseFloat(params.i.value) * DEG_TO_RAD;
             // Get epoch values
-            const raan_0_rad = parseFloat(params.raan.value) * DEG_TO_RAD;
-            const aop_0_rad = parseFloat(params.aop.value) * DEG_TO_RAD;
+            const raan_0_rad = parseFloat(params.raan_0.value) * DEG_TO_RAD; // MODIFIED
+            const aop_0_rad = parseFloat(params.aop_0.value) * DEG_TO_RAD; // MODIFIED
             const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD; 
 
             // 1. Calculate J2 Perturbation Rates
@@ -1133,12 +1158,20 @@
             const p = a * (1 - e**2); // semi-latus rectum
             const J2_factor = -(3/2) * n * J2_COEFF * (EARTH_RADIUS_KM / p)**2;
             
-            const raan_dot = J2_factor * Math.cos(i_rad); // rad/s
-            const aop_dot = J2_factor * (5/2 * Math.sin(i_rad)**2 - 2); // rad/s
+            const raan_dot_rad_s = J2_factor * Math.cos(i_rad); // rad/s
+            const aop_dot_rad_s = J2_factor * (5/2 * Math.sin(i_rad)**2 - 2); // rad/s
+
+            // NEW: Convert rates to deg/day for display
+            const raan_dot_deg_day = raan_dot_rad_s * RAD_TO_DEG * 86400;
+            const aop_dot_deg_day = aop_dot_rad_s * RAD_TO_DEG * 86400;
             
             // 2. Calculate current elements
-            const raan_rad = (raan_0_rad + raan_dot * elapsedSimSeconds) % (2 * Math.PI);
-            const aop_rad = (aop_0_rad + aop_dot * elapsedSimSeconds) % (2 * Math.PI);
+            let raan_rad = (raan_0_rad + raan_dot_rad_s * elapsedSimSeconds) % (2 * Math.PI);
+            if (raan_rad < 0) raan_rad += 2 * Math.PI; // Ensure positive 0-2PI range
+
+            let aop_rad = (aop_0_rad + aop_dot_rad_s * elapsedSimSeconds) % (2 * Math.PI);
+            if (aop_rad < 0) aop_rad += 2 * Math.PI; // Ensure positive 0-2PI range
+            
             const M_rad = (M_0_rad + n * elapsedSimSeconds) % (2 * Math.PI);
             
             // 3. Solve Kepler's Equation for Eccentric Anomaly (E)
@@ -1149,6 +1182,7 @@
             const y_orb = a * Math.sqrt(1 - e**2) * Math.sin(E_rad);
             
             // 5. Rotate from orbital frame to ECI frame
+            // *** Use the new current raan_rad and aop_rad ***
             const cR = Math.cos(raan_rad), sR = Math.sin(raan_rad);
             const cA = Math.cos(aop_rad), sA = Math.sin(aop_rad);
             const cI = Math.cos(i_rad), sI = Math.sin(i_rad);
@@ -1183,7 +1217,16 @@
             const r_mag = a * (1 - e * Math.cos(E_rad));
             const alt_km = r_mag - EARTH_RADIUS_KM;
 
-            return { eci, ecef, latLon, period: T_period, nu_rad, alt_km };
+            // NEW: Return all the required values
+            return { 
+                eci, ecef, latLon, 
+                period: T_period, 
+                nu_rad, alt_km,
+                current_raan_rad: raan_rad,
+                current_aop_rad: aop_rad,
+                raan_dot_deg_day: raan_dot_deg_day,
+                aop_dot_deg_day: aop_dot_deg_day
+            };
         }
 
         // Kepler's equation solver (from original file)
