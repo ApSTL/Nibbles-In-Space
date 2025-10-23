@@ -327,6 +327,11 @@
         .sim-button:hover {
             background-color: #ffd966;
         }
+        .sim-button:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -346,7 +351,7 @@
                 <h2 class="sat-1-color">SATELLITE 1 ORBIT</h2>
                 <div class="control-group">
                     <label for="a-1">Semi-major Axis (<i>a</i>) <span class="value" id="a-1_val"></span> km</label>
-                    <input type="range" id="a-1" min="6600" max="50000" step="100" value="26600">
+                    <input type="range" id="a-1" min="6600" max="50000" step="1" value="26600">
                 </div>
                 <div class="control-group">
                     <label for="e-1">Eccentricity (<i>e</i>) <span class="value" id="e-1_val"></span></label>
@@ -405,7 +410,7 @@
                 <h2 class="sat-2-color">SATELLITE 2 ORBIT</h2>
                 <div class="control-group">
                     <label for="a-2">Semi-major Axis (<i>a</i>) <span class="value" id="a-2_val"></span> km</label>
-                    <input type="range" id="a-2" min="6600" max="50000" step="100" value="26600">
+                    <input type="range" id="a-2" min="6600" max="50000" step="0" value="26600">
                 </div>
                 <div class="control-group">
                     <label for="e-2">Eccentricity (<i>e</i>) <span class="value" id="e-2_val"></span></label>
@@ -464,7 +469,7 @@
                 <h2 class="sat-3-color">SATELLITE 3 ORBIT</h2>
                 <div class="control-group">
                     <label for="a-3">Semi-major Axis (<i>a</i>) <span class="value" id="a-3_val"></span> km</label>
-                    <input type="range" id="a-3" min="6600" max="50000" step="100" value="7071.137">
+                    <input type="range" id="a-3" min="6600" max="50000" step="1" value="7071.137">
                 </div>
                 <div class="control-group">
                     <label for="e-3">Eccentricity (<i>e</i>) <span class="value" id="e-3_val"></span></label>
@@ -530,6 +535,7 @@
                     <input type="range" id="speed" min="0" max="5000" step="1" value="500">
                 </div>
                 <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
+                <button id="fetch-iss-btn" class="sim-button" style="margin-top: 5px;">Load ISS TLE</button>
                 
                 <h2>SIMULATION STATE</h2>
                 <div id="sim-time-display"></div>
@@ -692,6 +698,7 @@
             speedValue: document.getElementById('speed_val'),
             simTimeDisplay: document.getElementById('sim-time-display'),
             resetSimBtn: document.getElementById('reset-sim-btn'),
+            fetchIssBtn: document.getElementById('fetch-iss-btn'), // NEW
             stats: {
                 val: [
                     document.getElementById('stat-0'), 
@@ -746,6 +753,111 @@
             window.addEventListener('resize', onWindowResize);
         }
 
+        // --- NEW: ISS TLE Fetching ---
+        async function loadIssTle() {
+            const url = "https://tle.ivanstanojevic.me/api/tle/25544";
+            dom.fetchIssBtn.textContent = "Loading...";
+            dom.fetchIssBtn.disabled = true;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const tleData = await response.json();
+                
+                if (tleData.line1 && tleData.line2) {
+                    parseAndApplyTle(tleData.line1, tleData.line2);
+                } else {
+                    throw new Error("Invalid TLE data received.");
+                }
+
+            } catch (error) {
+                console.error("Failed to fetch ISS TLE:", error);
+                alert("Failed to load ISS TLE data. See console for details.");
+            } finally {
+                dom.fetchIssBtn.textContent = "Load ISS TLE";
+                dom.fetchIssBtn.disabled = false;
+            }
+        }
+
+        function parseAndApplyTle(line1, line2) {
+            try {
+                // --- Parse Epoch (Line 1) ---
+                const yearStr = line1.substring(18, 20);
+                const epochYear = parseInt(yearStr) < 57 ? 2000 + parseInt(yearStr) : 1900 + parseInt(yearStr);
+                const epochDay = parseFloat(line1.substring(20, 32)); // Day of year (e.g., 295.12345)
+                
+                // Create Date object from Year and Day-of-Year (UTC)
+                const epochDate = new Date(Date.UTC(epochYear, 0, 1)); // Jan 1 00:00 UTC
+                epochDate.setMilliseconds(epochDate.getMilliseconds() + (epochDay - 1) * 86400 * 1000);
+
+                // --- Parse Orbital Elements (Line 2) ---
+                const inclination_deg = parseFloat(line2.substring(8, 16));
+                const raan_deg = parseFloat(line2.substring(17, 25));
+                const eccentricity = parseFloat("." + line2.substring(26, 33)); // Implied decimal
+                const aop_deg = parseFloat(line2.substring(34, 42));
+                const m_deg = parseFloat(line2.substring(43, 51));
+                const n_rev_day = parseFloat(line2.substring(52, 63)); // Mean motion in revs/day
+
+                // --- Calculate Semi-major Axis (a) ---
+                const n_rad_s = n_rev_day * (2 * Math.PI) / 86400.0;
+                const a_km = Math.cbrt(MU_EARTH / (n_rad_s ** 2));
+                
+                // --- Apply Values to DOM ---
+
+                // 1. Set Simulation Epoch and Speed
+                // TLE epoch is UTC. datetime-local input needs YYYY-MM-DDTHH:MM format.
+                // .toISOString() returns UTC, so slicing it is correct.
+                dom.epochInput.value = epochDate.toISOString().slice(0, 16);
+                
+                dom.speedSlider.value = 1;
+                dom.speedValue.textContent = 'x1';
+
+                // 2. Set Satellite Parameters
+                const tleParams = {
+                    a: a_km,
+                    e: eccentricity,
+                    i: inclination_deg,
+                    raan_0: raan_deg,
+                    aop_0: aop_deg,
+                    m0: m_deg,
+                    fov: 120
+                };
+
+                for (let i = 0; i < 3; i++) {
+                    const sat = dom.sats[i];
+                    
+                    // Set value, clamping to min/max of the slider
+                    sat.a.value = Math.max(parseFloat(sat.a.min), Math.min(parseFloat(sat.a.max), tleParams.a));
+                    sat.e.value = Math.max(parseFloat(sat.e.min), Math.min(parseFloat(sat.e.max), tleParams.e));
+                    sat.i.value = Math.max(parseFloat(sat.i.min), Math.min(parseFloat(sat.i.max), tleParams.i));
+                    sat.raan_0.value = Math.max(parseFloat(sat.raan_0.min), Math.min(parseFloat(sat.raan_0.max), tleParams.raan_0));
+                    sat.aop_0.value = Math.max(parseFloat(sat.aop_0.min), Math.min(parseFloat(sat.aop_0.max), tleParams.aop_0));
+                    sat.m0.value = Math.max(parseFloat(sat.m0.min), Math.min(parseFloat(sat.m0.max), tleParams.m0));
+                    sat.fov.value = Math.max(parseFloat(sat.fov.min), Math.min(parseFloat(sat.fov.max), tleParams.fov));
+
+                    // IMPORTANT: Update UI displays
+                    updateSatelliteUI(i);
+                }
+
+                // 3. Set display toggles as requested
+                dom.sats[0].track.checked = false;
+                dom.sats[0].cov.checked = false;
+                dom.sats[1].track.checked = false;
+                dom.sats[1].cov.checked = false;
+                dom.sats[2].track.checked = true;
+                dom.sats[2].cov.checked = true;
+
+                // 4. Reset simulation to apply new epoch and orbital elements
+                resetSimulation();
+            
+            } catch (err) {
+                console.error("Error parsing TLE data:", err);
+                alert("Failed to parse TLE data. See console.");
+            }
+        }
+
         // --- UI Setup ---
         function setupUI() {
             // Toggle Button
@@ -769,6 +881,7 @@
 
             // Reset button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
+            dom.fetchIssBtn.addEventListener('click', loadIssTle); // NEW
 
             // Satellite control sliders
             dom.sats.forEach((sat, index) => {
