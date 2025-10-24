@@ -38,7 +38,7 @@
 
         #info {
             width: 335px;
-            max-height: calc(100vh - 25px);
+			max-height: calc(100vh - 25px);
             overflow-y: auto;
             margin: 5px;
 			margin-left: 15px;
@@ -197,7 +197,7 @@
         /* Map Element Styles */
         .coastline { 
             fill: none;
-            stroke: #BE9905;
+            stroke: #5d9732;
             stroke-width: 0.5px;
         }
         .graticule { 
@@ -276,11 +276,11 @@
         /* Other new UI styles */
         input[type="datetime-local"] {
             width: 100%;
-            background-color: #333;
+			background-color: #333;
             color: #fff;
             border: 1px solid #555;
             border-radius: 5px;
-            padding: 5px;
+            padding: 0px;
             font-family: "Roboto Mono", monospace;
         }
         #sim-time-display {
@@ -535,7 +535,7 @@
                     <input type="range" id="speed" min="0" max="5000" step="1" value="500">
                 </div>
                 <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
-                <button id="fetch-iss-btn" class="sim-button" style="margin-top: 5px;">Load ISS TLE</button>
+                <button id="fetch-iss-btn" class="sim-button" style="margin-top: 5px;">Load Last ISS Location</button>
                 
                 <h2>SIMULATION STATE</h2>
                 <div id="sim-time-display"></div>
@@ -776,7 +776,7 @@
                 console.error("Failed to fetch ISS TLE:", error);
                 alert("Failed to load ISS TLE data. See console for details.");
             } finally {
-                dom.fetchIssBtn.textContent = "Load ISS TLE";
+                dom.fetchIssBtn.textContent = "Last ISS Location Loaded";
                 dom.fetchIssBtn.disabled = false;
             }
         }
