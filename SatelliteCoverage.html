@@ -363,7 +363,7 @@
                 </div>
                 <div class="control-group">
                     <label for="raan_0-1">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-1_val"></span>°</label>
-                    <input type="range" id="raan_0-1" min="0" max="360" step="0.1" value="0">
+                    <input type="range" id="raan_0-1" min="0" max="360" step="0.1" value="270">
                 </div>
                 <div class="control-group">
                     <label for="aop_0-1">Initial Argument of Perigee (<i>ω<sub>0</sub></i>) <span class="value" id="aop_0-1_val"></span>°</label>
@@ -422,7 +422,7 @@
                 </div>
                 <div class="control-group">
                     <label for="raan_0-2">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-2_val"></span>°</label>
-                    <input type="range" id="raan_0-2" min="0" max="360" step="0.1" value="180">
+                    <input type="range" id="raan_0-2" min="0" max="360" step="0.1" value="90">
                 </div>
                 <div class="control-group">
                     <label for="aop_0-2">Initial Argument of Perigee (<i>ω<sub>0</sub></i>) <span class="value" id="aop_0-2_val"></span>°</label>
@@ -534,7 +534,7 @@
                     <label for="speed">Simulation Speed <span class="value" id="speed_val">x500</span></label>
                     <input type="range" id="speed" min="0" max="5000" step="1" value="500">
                 </div>
-                <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
+                <button id="reset-sim-btn" class="sim-button">Reset to Current Epoch</button>
                 <button id="fetch-iss-btn" class="sim-button" style="margin-top: 5px;">Load Last ISS Location</button>
                 
                 <h2>SIMULATION STATE</h2>
@@ -1139,7 +1139,7 @@
             updateHeatmap(satCoverageParams); // Now fast enough to run every frame
             
             const now = performance.now();
-            if (statsWorker && now - lastStatsUpdateTime > 2000) { // Update stats 1/2sec
+            if (statsWorker && now - lastStatsUpdateTime > 500) { // Update stats
                 statsWorker.postMessage(satCoverageParams);
                 lastStatsUpdateTime = now;
             }
