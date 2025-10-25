@@ -997,8 +997,8 @@
             
             elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
             
-            // Update time display - using toUTCString() which includes GMT (equivalent to UTC)
-            dom.simTimeDisplay.textContent = currentSimDate.toUTCString();
+            // Update time display - using toUTCString() and replacing "GMT" with "UTC"
+            dom.simTimeDisplay.textContent = currentSimDate.toUTCString().replace("GMT", "UTC");
             
             // Calculate current GST
             const currentGST = (epochGST + EARTH_ROTATION_RAD_S * elapsedSimSeconds) % (2 * Math.PI);
