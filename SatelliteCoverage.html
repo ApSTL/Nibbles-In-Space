@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satellite Coverage Visualiser</title>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
@@ -12,7 +13,7 @@
     <script src="https://d3js.org/topojson.v3.min.js"></script>
 
     <style>
-        /* --- STYLES COPIED FROM OrbitVisualiser.html --- */
+        /* --- Base Styles --- */
 		body { 
             margin: 0; 
             font-family: "Roboto Mono", monospace;
@@ -23,14 +24,15 @@
             line-height: 80%;
             background-color: #000; 
             color: #fff; 
-            overflow: hidden; 
+            overflow: hidden; /* Prevents scrollbars from the full-screen map */
         }
         
+        /* --- Control Panel Styles --- */
         #panel-container {
             position: absolute; 
 			top: 0px;
             left: 0; 
-			z-index: 10;
+			z-index: 10; /* Ensures panel is on top of the map */
             display: flex;
             align-items: flex-start;
             flex-shrink: 0;
@@ -38,22 +40,23 @@
 
         #info {
             width: 335px;
-			max-height: calc(100vh - 25px);
-            overflow-y: auto;
+			max-height: calc(100vh - 25px); /* Full height with a small margin */
+            overflow-y: auto; /* Scrollable if content overflows */
             margin: 5px;
 			margin-left: 15px;
             padding: 5px;
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.1); /* Semi-transparent background */
             border-radius: 10px;
-            backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px); /* Frosted glass effect */
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
             border: 1px solid rgba(190, 153, 5, 1);
-            transition: all 0.35s ease-in-out;
-            transform: translateX(0);
+            transition: all 0.35s ease-in-out; /* Animation for collapsing */
+            transform: translateX(0); /* Initial state: visible */
         }
 
+        /* Collapsed state for the panel */
         #info.collapsed {
-            transform: translateX(-100%);
+            transform: translateX(-100%); /* Slides panel off-screen */
             width: 0px;
             padding-left: 0;
             padding-right: 0;
@@ -64,7 +67,7 @@
         #toggle-button {
             position: absolute;
             top: 5%;
-            left: 100%;
+            left: 100%; /* Sits just to the right of the panel */
             transform: translateX(0);
             width: 48px;
             height: 48px;
@@ -83,11 +86,13 @@
             transition: all 0.35s ease-in-out;
         }
 
+        /* Style for the toggle button when the panel is collapsed */
         #info.collapsed + #toggle-button {
-            transform: translateX(-10%);
-			background: #ed1248;
+            transform: translateX(-10%); /* Sits slightly on top of the collapsed panel */
+			background: #ed1248; /* Change color to indicate 'open' action */
         }
 
+        /* --- UI Element Styles --- */
         h1 {
             margin-top: 0; 
             font-size: 1.8em; 
@@ -114,6 +119,8 @@
 		}
         .control-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        
+        /* Custom styles for range sliders */
         input[type="range"] { 
             width: 100%; 
             -webkit-appearance: none; 
@@ -141,7 +148,11 @@
             border-radius: 50%; 
             border: 2px solid #000;
         }
+        
+        /* Value displays (e.g., "1234 km") */
         .value { float: right; font-weight: normal; color: #ccc; }
+        
+        /* Key-value pair display for satellite state */
         .display-item { 
             display: flex; 
             justify-content: space-between; 
@@ -152,6 +163,8 @@
         .display-item:last-child { border-bottom: none; }
         .display-label { color: #aaa; }
         .display-value { font-weight: bold; }
+        
+        /* Warning message for low perigee */
         .warning { 
             font-size: 0.85em; 
             font-weight: bold; 
@@ -159,13 +172,14 @@
             padding: 6px; 
             margin-top: 5px; 
             border-radius: 4px; 
-            display: none; 
+            display: none; /* Hidden by default */
         }
         .warning.amber { display: block; background-color: #5d4500; color: #ffc107; }
         .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
+        
         .display-group { margin-bottom: 12px; } 
 
-        /* --- NEW STYLES FOR THIS VISUALISER --- */
+        /* --- Map Styles --- */
         #map-container {
             position: absolute;
             top: 0;
@@ -175,6 +189,7 @@
             min-width: 0;
         }
 
+        /* Canvas for the coverage heatmap (sits below the SVG) */
         #heatmap-canvas {
             position: absolute;
             top: 0;
@@ -184,6 +199,7 @@
             z-index: 1;
         }
 
+        /* SVG for map outlines, satellite markers, and tracks (sits on top) */
         #map-svg {
             position: absolute;
             top: 0;
@@ -194,24 +210,28 @@
             background-color: transparent;
         }
 
-        /* Map Element Styles */
+        /* --- SVG Element Styles --- */
         .coastline { 
             fill: none;
             stroke: #5d9732;
             stroke-width: 0.5px;
         }
-        .graticule { 
+        .graticule { /* Latitude/Longitude grid lines */
             fill: none; 
             stroke: #333; 
             stroke-width: 0.5px; 
             stroke-dasharray: 2,2; 
         }
-        .satellite { fill: #00ffff; stroke: #fff; stroke-width: 1.5px; }
+        .satellite { 
+            /* Fill is set dynamically in JS */
+            stroke: #fff; 
+            stroke-width: 1.5px; 
+        }
         .ground-track-1 { fill: none; stroke: #BE9905; stroke-width: 1.5px; opacity: 0.7; }
         .ground-track-2 { fill: none; stroke: #1a5dad; stroke-width: 1.5px; opacity: 0.7; }
         .ground-track-3 { fill: none; stroke: #ed1248; stroke-width: 1.5px; opacity: 0.7; }
 
-        /* Tab Styles */
+        /* --- Tab Styles --- */
         .tabs {
             display: flex;
             justify-content: space-around;
@@ -234,10 +254,10 @@
             color: #000;
             font-weight: bold;
         }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tab-content { display: none; } /* All tabs hidden by default */
+        .tab-content.active { display: block; } /* Active tab is shown */
 
-        /* Toggle Switch Styles */
+        /* --- Toggle Switch Styles --- */
         .toggle-switch {
             display: flex;
             justify-content: space-between;
@@ -250,8 +270,8 @@
             width: 50px;
             height: 24px;
         }
-        .switch input { display: none; }
-        .slider {
+        .switch input { display: none; } /* Hide the actual checkbox */
+        .slider { /* The visible part of the switch */
             position: absolute;
             cursor: pointer;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -259,7 +279,7 @@
             transition: .4s;
             border-radius: 24px;
         }
-        .slider:before {
+        .slider:before { /* The sliding knob */
             position: absolute;
             content: "";
             height: 18px;
@@ -273,14 +293,14 @@
         input:checked + .slider { background-color: #BE9905; }
         input:checked + .slider:before { transform: translateX(26px); }
 
-        /* Other new UI styles */
+        /* --- Other UI Styles --- */
         input[type="datetime-local"] {
             width: 100%;
 			background-color: #333;
             color: #fff;
             border: 1px solid #555;
             border-radius: 5px;
-            padding: 0px; /* Reduced padding slightly */
+            padding: 0px; 
             font-family: "Roboto Mono", monospace;
         }
         #sim-time-display {
@@ -292,6 +312,8 @@
             border-radius: 5px;
             margin-bottom: 15px;
         }
+        
+        /* Styles for coverage statistic bars */
         .stat-bar {
             width: 100%;
             background-color: #333;
@@ -302,15 +324,17 @@
         .stat-bar-fill {
             height: 10px;
             background-color: #BE9905;
-            width: 0%;
-            transition: width 0.5s ease-out;
+            width: 0%; /* Width is set dynamically by JS */
+            transition: width 0.5s ease-out; /* Animate bar changes */
             border-radius: 3px;
         }
+        
+        /* Satellite-specific colors for text */
         .sat-1-color { color: #BE9905; }
         .sat-2-color { color: #1a5dad; }
         .sat-3-color { color: #ed1248; }
 
-        /* Button Style */
+        /* --- Button Style --- */
         .sim-button {
             width: 100%;
             padding: 10px;
@@ -351,7 +375,7 @@
                 <h2 class="sat-1-color">SATELLITE 1 ORBIT</h2>
                 <div class="control-group">
                     <label for="a-1">Semi-major Axis (<i>a</i>) <span class="value" id="a-1_val"></span> km</label>
-                    <input type="range" id="a-1" min="6600" max="50000" step="1" value="26600">
+                    <input type="range" id="a-1" min="6600" max="50000" step="1" value="26562.4">
                 </div>
                 <div class="control-group">
                     <label for="e-1">Eccentricity (<i>e</i>) <span class="value" id="e-1_val"></span></label>
@@ -359,7 +383,7 @@
                 </div>
                 <div class="control-group">
                     <label for="i-1">Inclination (<i>i</i>) <span class="value" id="i-1_val"></span>°</label>
-                    <input type="range" id="i-1" min="0" max="180" step="0.1" value="63.4">
+                    <input type="range" id="i-1" min="0" max="180" step="0.1" value="63.4349">
                 </div>
                 <div class="control-group">
                     <label for="raan_0-1">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-1_val"></span>°</label>
@@ -410,7 +434,7 @@
                 <h2 class="sat-2-color">SATELLITE 2 ORBIT</h2>
                 <div class="control-group">
                     <label for="a-2">Semi-major Axis (<i>a</i>) <span class="value" id="a-2_val"></span> km</label>
-                    <input type="range" id="a-2" min="6600" max="50000" step="0" value="26600">
+                    <input type="range" id="a-2" min="6600" max="50000" step="0" value="26562.4">
                 </div>
                 <div class="control-group">
                     <label for="e-2">Eccentricity (<i>e</i>) <span class="value" id="e-2_val"></span></label>
@@ -418,7 +442,7 @@
                 </div>
                 <div class="control-group">
                     <label for="i-2">Inclination (<i>i</i>) <span class="value" id="i-2_val"></span>°</label>
-                    <input type="range" id="i-2" min="0" max="180" step="0.1" value="63.4">
+                    <input type="range" id="i-2" min="0" max="180" step="0.1" value="63.4349">
                 </div>
                 <div class="control-group">
                     <label for="raan_0-2">Initial RAAN (<i>Ω<sub>0</sub></i>) <span class="value" id="raan_0-2_val"></span>°</label>
@@ -535,6 +559,7 @@
                     <input type="range" id="speed" min="0" max="5000" step="1" value="500">
                 </div>
                 <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
+                
                 <h2>SIMULATION STATE</h2>
                 <div id="sim-time-display"></div>
             </div>
@@ -572,29 +597,28 @@
     </div>
 
     <script id="stats-worker" type="text/worker">
-        // --- Constants (must be redefined in worker) ---
+        // --- Constants (must be redefined in worker scope) ---
         const EARTH_RADIUS_KM = 6378.137;
         const DEG_TO_RAD = Math.PI / 180;
         const RAD_TO_DEG = 180 / Math.PI;
 
         /**
-         * Checks if a point on Earth's surface is visible to a satellite.
-         * All inputs must be pre-calculated for performance.
+         * (Worker copy) Checks if a point on Earth's surface is visible to a satellite.
+         * This is a duplicate of the main thread's function, simplified for worker use.
          */
         function isPointVisible(pointECEF, satPos, r_sat, nadir, nadirMag, fov_rad, horizon_angle_rad) {
-            // 1. Horizon Check
+            // 1. Horizon Check: Is the point behind the Earth?
             const dot_center = pointECEF.x * satPos.x + 
                                pointECEF.y * satPos.y + 
                                pointECEF.z * satPos.z;
             const angle_center_sq_cos = dot_center / (EARTH_RADIUS_KM * r_sat);
-            // Clamp to avoid floating point errors with acos
             const angle_center = Math.acos(Math.max(-1, Math.min(1, angle_center_sq_cos)));
             
             if (angle_center > horizon_angle_rad) {
-                return false; // Point is behind the horizon
+                return false; 
             }
             
-            // 2. FOV Check
+            // 2. FOV Check: Is the point within the sensor's field of view?
             const vec_sat_to_point = {
                 x: pointECEF.x - satPos.x,
                 y: pointECEF.y - satPos.y,
@@ -611,10 +635,13 @@
             return angle_fov <= fov_rad;
         }
 
+        /**
+         * (Worker copy) Converts Lat/Lon (degrees) to ECEF coordinates (km).
+         */
         function latLonToECEF(lat_deg, lon_deg, alt_km) {
             const lat_rad = lat_deg * DEG_TO_RAD;
             const lon_rad = lon_deg * DEG_TO_RAD;
-            const r = alt_km; // Assume on surface
+            const r = alt_km; 
             
             return {
                 x: r * Math.cos(lat_rad) * Math.cos(lon_rad),
@@ -624,18 +651,24 @@
         }
 
         // --- Worker Message Handler ---
+        /**
+         * Listens for messages from the main thread.
+         * e.data will contain the current parameters for all active satellites.
+         */
         self.onmessage = function(e) {
-            const satParams = e.data;
-            const numSamples = 50000;
-            let counts = [0, 0, 0, 0];
+            const satParams = e.data; // Array of satellite parameters
+            const numSamples = 50000; // Number of random points to test (Monte Carlo)
+            let counts = [0, 0, 0, 0]; // Index = number of satellites (0, 1, 2, or 3)
 
             if (satParams.length === 0) {
-                postMessage(counts);
+                postMessage(counts); // Send back empty counts if no sats
                 return;
             }
 
+            // Run the Monte Carlo simulation
             for (let i = 0; i < numSamples; i++) {
-                // Generate random point uniformly on sphere
+                // Generate a random point uniformly distributed on the sphere
+                // See: http://mathworld.wolfram.com/SpherePointPicking.html
                 const u = Math.random();
                 const v = Math.random();
                 const lon = 360 * u - 180;
@@ -644,43 +677,47 @@
                 const pointECEF = latLonToECEF(lat, lon, EARTH_RADIUS_KM);
                 let coverageCount = 0;
                 
+                // Check this point against each satellite
                 satParams.forEach(params => {
                     if (isPointVisible(pointECEF, params.satPos, params.r_sat, params.nadir, params.nadirMag, params.fov_rad, params.horizon_angle_rad)) {
                         coverageCount++;
                     }
                 });
+                
+                // Increment the appropriate counter
                 counts[coverageCount]++;
             }
 
-            // Send result back to main thread
+            // Send the results (counts and total samples) back to the main thread
             postMessage({counts, numSamples});
         };
     </script>
     
     <script>
-        // --- Constants ---
-        const EARTH_RADIUS_KM = 6378.137; // WGS-84 Equatorial Radius
-        const MU_EARTH = 398600.4418; // km^3/s^2
-        const J2_COEFF = 0.00108262668; // J2 gravitational coefficient
-        const EARTH_ROTATION_RAD_S = 7.2921150e-5; // Earth rotation rate (rad/s)
-        const DEG_TO_RAD = Math.PI / 180;
-        const RAD_TO_DEG = 180 / Math.PI;
+        // --- Global Constants ---
+        const EARTH_RADIUS_KM = 6378.137;     // WGS-84 Equatorial Radius
+        const MU_EARTH = 398600.4418;         // Earth's gravitational parameter (km^3/s^2)
+        const J2_COEFF = 0.00108262668;       // J2 gravitational coefficient (for perturbations)
+        const EARTH_ROTATION_RAD_S = 7.2921150e-5; // Earth rotation rate (radians/second)
+        const DEG_TO_RAD = Math.PI / 180;     // Conversion factor
+        const RAD_TO_DEG = 180 / Math.PI;     // Conversion factor
 
         // --- Global State ---
-        let svg, projection, path, graticule;
-        let heatmapCtx, heatmapWidth, heatmapHeight;
-        let lastTimestamp = 0;
-        let epochDate = new Date();
-        let currentSimDate = new Date();
-        let epochGST = 0; // Greenwich Sidereal Time at epoch
-        let elapsedSimSeconds = 0;
-        let satelliteStates = [{}, {}, {}]; // To store { ecef, latLon, period, ... }
-        let groundTracks = [[], [], []]; // Will store [lon, lat, timestamp]
-        let lastStatsUpdateTime = 0;
-        let statsWorker;
-        let pixelToGeoCache = []; // NEW: Cache for heatmap pixels
+        let svg, projection, path, graticule; // D3 map objects
+        let heatmapCtx, heatmapWidth, heatmapHeight; // Heatmap canvas objects
+        let lastTimestamp = 0;                // For calculating animation frame delta time
+        let epochDate = new Date();           // The "T=0" for the simulation
+        let currentSimDate = new Date();      // The "current" time in the simulation
+        let epochGST = 0;                     // Greenwich Sidereal Time at epoch
+        let elapsedSimSeconds = 0;            // Total sim seconds passed since epoch
+        let satelliteStates = [{}, {}, {}];   // Stores propagated state {ecef, latLon, ...} for each sat
+        let groundTracks = [[], [], []];      // Stores array of [lon, lat, timestamp] for each sat's track
+        let lastStatsUpdateTime = 0;          // Throttles updates to the stats worker
+        let statsWorker;                      // The Web Worker for calculating stats
+        let pixelToGeoCache = [];             // Performance cache: [ {ecef: {x,y,z}}, ... ] for each heatmap pixel
 
-        // --- DOM Elements ---
+        // --- DOM Element Cache ---
+        // Caching all DOM elements we need to interact with improves performance.
         const dom = {
             infoDiv: document.getElementById('info'),
             toggleButton: document.getElementById('toggle-button'),
@@ -692,22 +729,21 @@
             speedValue: document.getElementById('speed_val'),
             simTimeDisplay: document.getElementById('sim-time-display'),
             resetSimBtn: document.getElementById('reset-sim-btn'),
-            // fetchIssBtn removed
             stats: {
-                val: [
+                val: [ // Statistics text (e.g., "50%")
                     document.getElementById('stat-0'), 
                     document.getElementById('stat-1'), 
                     document.getElementById('stat-2'), 
                     document.getElementById('stat-3')
                 ],
-                bar: [
+                bar: [ // Statistics bar fill divs
                     document.getElementById('stat-bar-0'),
                     document.getElementById('stat-bar-1'),
                     document.getElementById('stat-bar-2'),
                     document.getElementById('stat-bar-3')
                 ]
             },
-            sats: [1, 2, 3].map(i => ({
+            sats: [1, 2, 3].map(i => ({ // Cache for each satellite's UI controls
                 a: document.getElementById(`a-${i}`),
                 e: document.getElementById(`e-${i}`),
                 i: document.getElementById(`i-${i}`),
@@ -715,9 +751,9 @@
                 aop_0: document.getElementById(`aop_0-${i}`), 
                 m0: document.getElementById(`m0-${i}`), 
                 fov: document.getElementById(`fov-${i}`),
-                track: document.getElementById(`track-${i}`),
-                cov: document.getElementById(`cov-${i}`), 
-                val: {
+                track: document.getElementById(`track-${i}`), // Checkbox
+                cov: document.getElementById(`cov-${i}`),   // Checkbox
+                val: { // Value display spans
                     a: document.getElementById(`a-${i}_val`),
                     e: document.getElementById(`e-${i}_val`),
                     i: document.getElementById(`i-${i}_val`),
@@ -736,48 +772,53 @@
             }))
         };
 
-        // --- Main Init Function ---
+        // --- Main Initialization Function ---
+        /**
+         * This is the entry point for the application.
+         * It sets up the UI, worker, and map, then starts the simulation loop.
+         */
         function init() {
             setupUI();
             initStatsWorker();
             initMap();
-            resetSimulation();
-            requestAnimationFrame(simulationLoop);
-            window.addEventListener('resize', onWindowResize);
+            resetSimulation(); // Set initial simulation time and state
+            requestAnimationFrame(simulationLoop); // Start the loop
+            window.addEventListener('resize', onWindowResize); // Handle window resizing
         }
 
-        // --- ISS TLE Fetching Functions Removed ---
-        // loadIssTle() removed
-        // parseAndApplyTle() removed
-
         // --- UI Setup ---
+        /**
+         * Attaches all necessary event listeners to the UI elements.
+         */
         function setupUI() {
-            // Toggle Button
+            // Panel collapse toggle button
             dom.toggleButton.addEventListener('click', () => {
                 dom.infoDiv.classList.toggle('collapsed');
                 dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
             });
 
-            // Set initial epoch
+            // Set initial epoch time to the user's current local time
             const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            now.setMilliseconds(null);
-            now.setSeconds(null);
+            now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Adjust for local timezone
+            now.setMilliseconds(null); // Clean up
+            now.setSeconds(null);      // Clean up
             dom.epochInput.value = now.toISOString().slice(0, 16);
-            dom.epochInput.addEventListener('change', resetSimulation);
+            dom.epochInput.addEventListener('change', resetSimulation); // Reset sim on change
             
-            // Simulation speed
+            // Simulation speed slider
             dom.speedSlider.addEventListener('input', () => {
                 dom.speedValue.textContent = `x${dom.speedSlider.value}`;
             });
 
-            // Reset button
+            // Reset simulation button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
-            // ISS button listener removed
 
             // Satellite control sliders
             dom.sats.forEach((sat, index) => {
+                // Function to update the text display next to a slider
                 const updateFn = () => updateSatelliteUI(index);
+                
+                // Add listeners to all orbital parameter sliders
                 sat.a.addEventListener('input', updateFn);
                 sat.e.addEventListener('input', updateFn);
                 sat.i.addEventListener('input', updateFn);
@@ -785,21 +826,31 @@
                 sat.aop_0.addEventListener('input', updateFn); 
                 sat.m0.addEventListener('input', updateFn); 
                 sat.fov.addEventListener('input', updateFn);
+                
+                // Add listener to the 'Show Ground Track' toggle
                 sat.track.addEventListener('change', () => {
                     if (!sat.track.checked) {
-                        groundTracks[index] = []; // Clear track on toggle off
+                        // If unchecked, clear the track data
+                        groundTracks[index] = []; 
                         d3.select(`#track-${index}`).datum({ type: "LineString", coordinates: [] }).attr('d', path);
                     }
                 });
-                updateSatelliteUI(index); // Set initial values
+                
+                // Set the initial text values on load
+                updateSatelliteUI(index); 
             });
         }
         
+        /**
+         * Updates the text values next to the sliders for a given satellite.
+         * Also checks for and displays orbital warnings (e.g., low perigee).
+         */
         function updateSatelliteUI(index) {
             const sat = dom.sats[index];
             const a = parseFloat(sat.a.value);
             const e = parseFloat(sat.e.value);
             
+            // Update text values
             sat.val.a.textContent = a.toFixed(0);
             sat.val.e.textContent = e.toFixed(3);
             sat.val.i.textContent = parseFloat(sat.i.value).toFixed(1);
@@ -808,44 +859,67 @@
             sat.val.m0.textContent = parseFloat(sat.m0.value).toFixed(1); 
             sat.val.fov.textContent = `${sat.fov.value}°`;
             
-            // Perigee Warning (from original file)
+            // Perigee Warning
             const perigee_alt = a * (1 - e) - EARTH_RADIUS_KM;
-            sat.warning.className = 'warning'; sat.warning.textContent = '';
+            sat.warning.className = 'warning'; // Reset warning
+            sat.warning.textContent = '';
+            
             if (perigee_alt < 80) {
-                sat.warning.classList.add('red'); sat.warning.textContent = 'WARNING: Atmospheric re-entry!';
+                // Altitude is too low, will re-enter
+                sat.warning.classList.add('red'); 
+                sat.warning.textContent = 'WARNING: Atmospheric re-entry!';
             } else if (perigee_alt < 250) {
-                sat.warning.classList.add('amber'); sat.warning.textContent = 'CAUTION: High atmospheric drag.';
+                // Altitude is low, high drag
+                sat.warning.classList.add('amber'); 
+                sat.warning.textContent = 'CAUTION: High atmospheric drag.';
             }
         }
 
+        /**
+         * Handles tab switching logic for the control panel.
+         */
         function openTab(evt, tabName) {
             let i, tabcontent, tabbuttons;
+            
+            // Hide all tab content
             tabcontent = document.getElementsByClassName("tab-content");
             for (i = 0; i < tabcontent.length; i++) {
                 tabcontent[i].style.display = "none";
             }
+            
+            // Deactivate all tab buttons
             tabbuttons = document.getElementsByClassName("tab-button");
             for (i = 0; i < tabbuttons.length; i++) {
                 tabbuttons[i].className = tabbuttons[i].className.replace(" active", "");
             }
+            
+            // Show the selected tab content and activate its button
             document.getElementById(tabName).style.display = "block";
             evt.currentTarget.className += " active";
         }
 
         // --- Stats Worker Setup ---
+        /**
+         * Initializes the Web Worker that calculates coverage statistics.
+         * It creates the worker from the inline <script> tag.
+         */
         function initStatsWorker() {
             try {
+                // Create a Blob from the worker script text
                 const blob = new Blob([document.getElementById('stats-worker').textContent], { type: 'application/javascript' });
+                // Create a worker from the Blob's URL
                 statsWorker = new Worker(URL.createObjectURL(blob));
                 
+                // Define what to do when the worker sends results back
                 statsWorker.onmessage = function(e) {
                     const { counts, numSamples } = e.data;
+                    
+                    // Update the UI with the new statistics
                     counts.forEach((count, i) => {
                         const percent = (count / numSamples) * 100;
-                        // MODIFIED: Round percentage to nearest whole number
                         const roundedPercent = Math.round(percent);
-                        dom.stats.val[i].textContent = `${roundedPercent}%`;
-                        dom.stats.bar[i].style.width = `${roundedPercent}%`;
+                        dom.stats.val[i].textContent = `${roundedPercent}%`; // Update text
+                        dom.stats.bar[i].style.width = `${roundedPercent}%`; // Update bar width
                     });
                 };
                 
@@ -859,54 +933,70 @@
 
 
         // --- Map Initialization ---
+        /**
+         * Sets up the D3.js map projection, paths, and SVG layers.
+         * Loads the world map geography.
+         */
         function initMap() {
             svg = d3.select("#map-svg");
             heatmapCtx = dom.heatmapCanvas.getContext('2d', { willReadFrequently: true });
             heatmapWidth = dom.heatmapCanvas.width;
             heatmapHeight = dom.heatmapCanvas.height;
 
+            // Use an Equirectangular projection (simple lat/lon to x/y)
             projection = d3.geoEquirectangular().translate([0, 0]).scale(1);
+            // Create a D3 path generator for this projection
             path = d3.geoPath(projection);
 
-            // Create layers
-            svg.append("g").attr("id", "graticule-layer");
-            svg.append("g").attr("id", "coastline-layer"); 
-            svg.append("g").attr("id", "track-layer");
-            svg.append("g").attr("id", "satellite-layer");
+            // Create <g> groups to act as layers (for z-ordering)
+            svg.append("g").attr("id", "graticule-layer"); // Longitude/latitude lines
+            svg.append("g").attr("id", "coastline-layer"); // Land outlines
+            svg.append("g").attr("id", "track-layer");     // Satellite ground tracks
+            svg.append("g").attr("id", "satellite-layer"); // Satellite markers
 
-            // Draw graticule
+            // Draw the graticule (lat/lon grid)
             graticule = d3.geoGraticule();
             svg.select("#graticule-layer").append("path")
                 .datum(graticule)
                 .attr("class", "graticule")
                 .attr("d", path);
 
-            // Load and draw world map (coastlines)
+            // Load world map data (TopoJSON format)
             d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
+                // Draw the coastline
                 svg.select("#coastline-layer").append("path") 
                     .datum(topojson.feature(world, world.objects.land)) 
                     .attr("class", "coastline") 
                     .attr("d", path);
-                onWindowResize(); // Fit map to screen
+                
+                // Fit map to screen *after* loading
+                onWindowResize(); 
             });
 
-            // Add ground track paths
+            // Add <path> elements for each satellite's ground track
             svg.select("#track-layer").append("path").attr("id", "track-0").attr("class", "ground-track-1");
             svg.select("#track-layer").append("path").attr("id", "track-1").attr("class", "ground-track-2");
             svg.select("#track-layer").append("path").attr("id", "track-2").attr("class", "ground-track-3");
 
-            // Add satellite markers
+            // Add <circle> elements for each satellite's marker
             svg.select("#satellite-layer").selectAll(".satellite")
-                .data([0, 1, 2])
-                .enter().append("circle")
+                .data([0, 1, 2]) // Bind data [0, 1, 2]
+                .enter().append("circle") // Create 3 circles
                 .attr("id", d => `sat-marker-${d}`)
                 .attr("class", "satellite")
                 .attr("r", 5)
-                .style("fill", d => ["#BE9905", "#1a5dad", "#ed1248"][d]);
+                .style("fill", d => ["#BE9905", "#1a5dad", "#ed1248"][d]); // Assign colors
             
+            // Call resize handler to set initial map size
             onWindowResize();
         }
 
+        /**
+         * Pre-calculates the ECEF coordinates for every pixel in the heatmap canvas.
+         * This is a major performance optimization. Instead of converting pixels 
+         * to [lon, lat] and then to ECEF *every frame*, we do it once here
+         * and store the ECEF coordinate.
+         */
         function updatePixelToGeoCache() {
             pixelToGeoCache = [];
             const w = dom.mapContainer.clientWidth;
@@ -914,16 +1004,17 @@
 
             for (let y = 0; y < heatmapHeight; y++) {
                 for (let x = 0; x < heatmapWidth; x++) {
-                    // Get [lon, lat] for the center of the pixel
+                    // Find the geographic [lon, lat] for the center of this pixel
                     const [lon, lat] = projection.invert([
                         ((x + 0.5) / heatmapWidth) * w,
                         ((y + 0.5) / heatmapHeight) * h
                     ]);
                     
-                    // Explicitly ignore anything outside 90/-90 lat
+                    // If the pixel is outside the map projection, store null
                     if (isNaN(lon) || isNaN(lat) || lat > 90 || lat < -90) { 
                         pixelToGeoCache.push(null);
                     } else {
+                        // Otherwise, convert to ECEF and cache it
                         pixelToGeoCache.push({
                             ecef: latLonToECEF(lat, lon, EARTH_RADIUS_KM)
                         });
@@ -932,118 +1023,144 @@
             }
         }
         
+        /**
+         * Handles the browser window being resized.
+         * It updates the map projection and redraws all map elements.
+         */
         function onWindowResize() {
             const w = dom.mapContainer.clientWidth;
             const h = dom.mapContainer.clientHeight;
             
-            // Update SVG
+            // Update SVG dimensions
             svg.attr("width", w).attr("height", h);
             
-            // Update projection
+            // Update D3 projection to fit new dimensions
             projection.scale(w / (2 * Math.PI) * 0.95).translate([w / 2, h / 2]);
             
-            // Redraw map elements
+            // Redraw map elements with the new projection
             svg.select(".coastline").attr("d", path); 
             svg.select(".graticule").attr("d", path);
 
-            // Redraw ground tracks and satellites
+            // Redraw satellite tracks and markers
             drawMapElements();
 
-            // REBUILD the heatmap cache
+            // REBUILD the heatmap cache, as pixel-to-geo mapping has changed
             updatePixelToGeoCache();
         }
 
         // --- Simulation ---
+        /**
+         * Resets the simulation to the epoch time specified in the input box.
+         * Clears all propagated states and ground tracks.
+         */
         function resetSimulation() {
-            // Treat the datetime-local input value as UTC
+            // Get the datetime-local value
             let epochString = dom.epochInput.value;
+            
+            // Treat the local datetime string as UTC by appending 'Z'
+            // This is a common way to handle datetime-local inputs as UTC
             if (epochString && !epochString.endsWith('Z')) {
                 epochString += 'Z'; 
             }
             epochDate = new Date(epochString);
             
+            // Fallback if the date is invalid
             if (isNaN(epochDate)) {
                  console.warn("Invalid Epoch Date from input, falling back to current time.");
-                epochDate = new Date(); // Fallback
-                 // Update input to reflect fallback
+                epochDate = new Date(); 
                 dom.epochInput.value = epochDate.toISOString().slice(0, 16);
             }
             
+            // Reset all simulation state variables
             currentSimDate = new Date(epochDate.getTime());
-            epochGST = getGST(epochDate);
+            epochGST = getGST(epochDate); // Calculate Earth's orientation at T=0
             elapsedSimSeconds = 0;
             
             // Reset tracks
             groundTracks = [[], [], []];
             svg.selectAll(".ground-track-1, .ground-track-2, .ground-track-3")
-               .datum({ type: "LineString", coordinates: [] })
-               .attr("d", path);
+               .datum({ type: "LineString", coordinates: [] }) // Set D3 data to empty
+               .attr("d", path); // Redraw empty path
             
             lastStatsUpdateTime = 0;
             lastTimestamp = 0; // Force timestamp reset in sim loop
         }
 
+        /**
+         * The main simulation loop, called every animation frame.
+         */
         function simulationLoop(timestamp) {
+            // --- 1. Calculate Time Delta ---
             if (lastTimestamp === 0) lastTimestamp = timestamp;
-            const deltaRealTime = (timestamp - lastTimestamp) / 1000.0; // in seconds
+            const deltaRealTime = (timestamp - lastTimestamp) / 1000.0; // Seconds passed in real life
             lastTimestamp = timestamp;
 
             const speed = parseFloat(dom.speedSlider.value);
-            const deltaSimTime = deltaRealTime * speed; // in seconds
+            const deltaSimTime = deltaRealTime * speed; // Seconds to advance simulation
             
+            // Advance simulation time
             if (speed > 0) {
                 currentSimDate.setMilliseconds(currentSimDate.getMilliseconds() + deltaSimTime * 1000);
             }
             
+            // Total seconds passed since epoch
             elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
             
-            // Update time display - using toUTCString() and replacing "GMT" with "UTC"
+            // --- 2. Update UI Displays ---
+            // Update time display, replacing "GMT" with "UTC" as requested
             dom.simTimeDisplay.textContent = currentSimDate.toUTCString().replace("GMT", "UTC");
             
-            // Calculate current GST
+            // --- 3. Propagate Satellites ---
+            // Calculate current Earth orientation (GST)
             const currentGST = (epochGST + EARTH_ROTATION_RAD_S * elapsedSimSeconds) % (2 * Math.PI);
 
-            // Propagate satellites and pre-calculate coverage params
+            // This array will hold parameters needed for coverage checks
             const satCoverageParams = [];
+            
             dom.sats.forEach((sat, i) => {
+                // Calculate the satellite's new position
                 const state = propagateSatellite(i, elapsedSimSeconds, currentGST);
-                satelliteStates[i] = state; // Store state even if incomplete
+                satelliteStates[i] = state; // Store the new state
 
-                // Update state displays only if propagation succeeded
+                // Update the state display panel (True Anomaly, Altitude, etc.)
                 if (state.nu_rad !== undefined && state.alt_km !== undefined) {
                     let nu_deg = state.nu_rad * RAD_TO_DEG;
-                    if (nu_deg < 0) nu_deg += 360;
+                    if (nu_deg < 0) nu_deg += 360; // Keep in 0-360 range
                     sat.val.nu.textContent = `${nu_deg.toFixed(1)}°`;
                     sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
-                } else { // Clear if propagation failed or values missing
-                    sat.val.nu.textContent = '--';
+                } else { 
+                    sat.val.nu.textContent = '--'; // Show '--' if state is invalid
                     sat.val.alt.textContent = '-- km';
                 }
 
+                // Update perturbation displays
                 if (state.current_raan_rad !== undefined) { 
                     sat.val.raan_current.textContent = `${(state.current_raan_rad * RAD_TO_DEG).toFixed(2)}°`;
                     sat.val.aop_current.textContent = `${(state.current_aop_rad * RAD_TO_DEG).toFixed(2)}°`;
                     sat.val.raan_dot.textContent = `${state.raan_dot_deg_day.toFixed(3)}°/day`;
                     sat.val.aop_dot.textContent = `${state.aop_dot_deg_day.toFixed(3)}°/day`;
-                } else { // Clear if propagation failed or values missing
+                } else { 
                      sat.val.raan_current.textContent = '--°';
                     sat.val.aop_current.textContent = '--°';
                     sat.val.raan_dot.textContent = '--°/day';
                     sat.val.aop_dot.textContent = '--°/day';
                 }
 
-
-                // Check if coverage is enabled and state is valid
+                // --- 4. Prepare Coverage Calculation ---
+                // If coverage is enabled and the satellite state is valid...
                 if (state.ecef && sat.cov.checked) { 
-                    const fov_rad = parseFloat(sat.fov.value) * DEG_TO_RAD / 2.0;
+                    const fov_rad = parseFloat(sat.fov.value) * DEG_TO_RAD / 2.0; // FOV half-angle
                     const satPos = state.ecef;
-                    const r_sat = Math.sqrt(satPos.x**2 + satPos.y**2 + satPos.z**2);
-                    // Check for invalid r_sat (could happen if propagation fails)
+                    const r_sat = Math.sqrt(satPos.x**2 + satPos.y**2 + satPos.z**2); // Satellite radius
+                    
                     if (isNaN(r_sat) || r_sat <= 0) {
-                         console.warn(`Invalid satellite radius calculated for satellite ${i+1}. Skipping coverage calculation.`);
+                         console.warn(`Invalid satellite radius for sat ${i+1}.`);
                     } else {
+                        // Pre-calculate all values needed by isPointVisible()
                         const nadir = { x: -satPos.x, y: -satPos.y, z: -satPos.z };
                         const horizon_angle_rad = Math.acos(Math.min(1, EARTH_RADIUS_KM / r_sat));
+                        
+                        // Add these params to the list for the heatmap/stats
                         satCoverageParams.push({
                             satPos, r_sat, fov_rad, nadir, nadirMag: r_sat, horizon_angle_rad
                         });
@@ -1051,59 +1168,68 @@
                 }
             });
 
-            // Update visualizations
-            drawMapElements();
-            updateHeatmap(satCoverageParams); // Now fast enough to run every frame
+            // --- 5. Update Visualizations ---
+            drawMapElements(); // Update SVG markers and tracks
+            updateHeatmap(satCoverageParams); // Update canvas heatmap
             
+            // --- 6. Update Statistics (Throttled) ---
             const now = performance.now();
-            if (statsWorker && now - lastStatsUpdateTime > 500) { // Update stats 2/sec
+            // Only update stats twice per second (every 500ms) to save performance
+            if (statsWorker && now - lastStatsUpdateTime > 500) { 
+                // Send current satellite parameters to the worker
                 statsWorker.postMessage(satCoverageParams);
                 lastStatsUpdateTime = now;
             }
 
+            // Request the next frame
             requestAnimationFrame(simulationLoop);
         }
 
+        /**
+         * Updates the SVG elements on the map (satellite markers and ground tracks).
+         */
         function drawMapElements() {
             satelliteStates.forEach((state, i) => {
+                // Skip if state is invalid
                 if (!state.latLon || isNaN(state.latLon[0]) || isNaN(state.latLon[1])) {
-                     // Hide marker if state is invalid
                      svg.select(`#sat-marker-${i}`).style("display", "none");
                     return;
                 }
                 
                 const [lon, lat] = state.latLon;
+                // Convert [lon, lat] to [x, y] screen coordinates
                 const coords = projection([lon, lat]);
 
-                // Check if projection returned valid screen coordinates
                 if (!coords || isNaN(coords[0]) || isNaN(coords[1])) {
                     svg.select(`#sat-marker-${i}`).style("display", "none");
-                    return; // Skip drawing if coordinates are invalid
+                    return; // Skip if projection fails
                 }
                 
-                // Update marker
+                // Update marker position
                 svg.select(`#sat-marker-${i}`)
                    .attr("cx", coords[0])
                    .attr("cy", coords[1])
-                   .style("display", "block");
+                   .style("display", "block"); // Ensure it's visible
                    
-                // Update track
+                // Update ground track
                 if (dom.sats[i].track.checked && state.period) {
+                    // Calculate a timestamp for 2 orbits ago
                     const twoOrbitsAgo = elapsedSimSeconds - 2 * state.period;
-                    // Filter old points
+                    // Filter out any points older than 2 orbits
                     groundTracks[i] = groundTracks[i].filter(point => point[2] >= twoOrbitsAgo);
-                    // Add new point only if valid
+                    // Add the new point
                     if (!isNaN(lon) && !isNaN(lat)) {
                         groundTracks[i].push([lon, lat, elapsedSimSeconds]);
                     }
                     
-                    // Create GeoJSON LineString (filter out any potential invalid points added before checks)
+                    // Get just the [lon, lat] pairs for D3
                     const lineCoords = groundTracks[i]
                                         .filter(p => !isNaN(p[0]) && !isNaN(p[1]))
                                         .map(p => [p[0], p[1]]);
+                    
                     const geoJsonLine = { type: "LineString", coordinates: lineCoords };
                     
-                    // Bind data and draw with path generator
+                    // Update the D3 path data
                     svg.select(`#track-${i}`).datum(geoJsonLine).attr("d", path);
                 }
             });
@@ -1111,29 +1237,38 @@
 
         // --- Coverage Calculation (Heatmap & Stats) ---
 
-        // Yellow colour palette
+        // RGBA color palette for the heatmap
+        // Index = number of satellites covering the pixel
         const heatmapColors = [
             [0, 0, 0, 0],         // 0 sats (transparent)
-            [255, 255, 255, 75],   // 1 sat (light red)
-            [255, 255, 255, 100],   // 2 sats (medium red)
-            [255, 255, 255, 125]    // 3 sats (bright red)
+            [255, 255, 255, 75],  // 1 sat (light white)
+            [255, 255, 255, 100], // 2 sats (medium white)
+            [255, 255, 255, 125]  // 3 sats (bright white)
         ];
 
+        /**
+         * Redraws the coverage heatmap on the canvas.
+         * This function iterates over the pre-calculated pixelToGeoCache.
+         */
         function updateHeatmap(satParams) {
+            // Get a new image data buffer
             const imgData = heatmapCtx.createImageData(heatmapWidth, heatmapHeight);
-            const data = imgData.data;
+            const data = imgData.data; // This is a flat [R,G,B,A, R,G,B,A, ...] array
             
             if (pixelToGeoCache.length === 0) {
                 heatmapCtx.clearRect(0, 0, heatmapWidth, heatmapHeight);
-                return;
+                return; // Cache not ready
             }
 
+            // Iterate over every pixel in the cache
             for (let i = 0; i < pixelToGeoCache.length; i++) {
                 const geo = pixelToGeoCache[i];
                 let coverageCount = 0;
 
+                // If geo is not null (i.e., it's a valid map pixel)
                 if (geo) {
                     const pointECEF = geo.ecef;
+                    // Check this point against every active satellite
                     satParams.forEach(params => {
                         if (isPointVisible(pointECEF, params.satPos, params.r_sat, params.nadir, params.nadirMag, params.fov_rad, params.horizon_angle_rad)) {
                             coverageCount++;
@@ -1141,157 +1276,170 @@
                     });
                 }
                 
+                // Get the color for this coverage count
                 const color = heatmapColors[coverageCount];
-                const dataIndex = i * 4;
-                data[dataIndex] = color[0];
-                data[dataIndex + 1] = color[1];
-                data[dataIndex + 2] = color[2];
-                data[dataIndex + 3] = color[3];
+                const dataIndex = i * 4; // Each pixel takes 4 spots in the array
+                
+                // Set the RGBA values
+                data[dataIndex] = color[0];     // R
+                data[dataIndex + 1] = color[1]; // G
+                data[dataIndex + 2] = color[2]; // B
+                data[dataIndex + 3] = color[3]; // A
             }
+            
+            // Draw the completed image data to the canvas
             heatmapCtx.putImageData(imgData, 0, 0);
         }
 
         /**
-         * Checks if a point on Earth's surface is visible to a satellite.
-         * All inputs must be pre-calculated for performance.
+         * (Main thread) Checks if a point on Earth's surface is visible to a satellite.
+         * This is the core logic for the heatmap.
+         * Includes extensive safety checks for NaN values.
          */
         function isPointVisible(pointECEF, satPos, r_sat, nadir, nadirMag, fov_rad, horizon_angle_rad) {
-             // Add checks for NaN or invalid inputs at the beginning
+             // Safety check for invalid inputs
             if (isNaN(r_sat) || r_sat <= 0 || isNaN(fov_rad) || isNaN(horizon_angle_rad) || !satPos || isNaN(satPos.x)) {
                 return false;
             }
             
-            // 1. Horizon Check
+            // --- 1. Horizon Check ---
+            // Calculate angle between the satellite's position vector and the point's position vector
+            // This tells us if the point is "around the curve" of the Earth
             const dot_center = pointECEF.x * satPos.x + 
                                pointECEF.y * satPos.y + 
                                pointECEF.z * satPos.z;
-             // Check if dot_center is valid before division
              if (isNaN(dot_center)) return false; 
+             
+            // cos(angle) = (a · b) / (|a| * |b|)
             const angle_center_sq_cos = dot_center / (EARTH_RADIUS_KM * r_sat);
-            
-             // Ensure the value is within the valid range for acos
-             const clamped_cos = Math.max(-1, Math.min(1, angle_center_sq_cos));
-             if (isNaN(clamped_cos)) return false; // Check after clamping
+            const clamped_cos = Math.max(-1, Math.min(1, angle_center_sq_cos));
+             if (isNaN(clamped_cos)) return false; 
              
             const angle_center = Math.acos(clamped_cos);
             
+            // If the angle is larger than the horizon angle, the point is hidden
             if (isNaN(angle_center) || angle_center > horizon_angle_rad) {
-                return false; // Point is behind the horizon or calculation failed
+                return false; 
             }
             
-            // 2. FOV Check
+            // --- 2. FOV Check ---
+            // Calculate vector from satellite to the point
             const vec_sat_to_point = {
                 x: pointECEF.x - satPos.x,
                 y: pointECEF.y - satPos.y,
                 z: pointECEF.z - satPos.z
             };
-             // Check for NaN components
             if (isNaN(vec_sat_to_point.x) || isNaN(vec_sat_to_point.y) || isNaN(vec_sat_to_point.z)) return false;
             
             const satToPointMag = Math.sqrt(vec_sat_to_point.x**2 + vec_sat_to_point.y**2 + vec_sat_to_point.z**2);
-             if (isNaN(satToPointMag) || satToPointMag <= 0) return false; // Check magnitude
+            if (isNaN(satToPointMag) || satToPointMag <= 0) return false; 
 
+            // Calculate angle between nadir (pointing to Earth's center) and the sat-to-point vector
             const dot_fov = vec_sat_to_point.x * nadir.x + 
                             vec_sat_to_point.y * nadir.y + 
                             vec_sat_to_point.z * nadir.z;
-             if (isNaN(dot_fov)) return false; // Check dot product
-             
-             // Check nadirMag before division
-             if (isNaN(nadirMag) || nadirMag <= 0) return false;
+            if (isNaN(dot_fov)) return false; 
+            if (isNaN(nadirMag) || nadirMag <= 0) return false;
 
             const angle_fov_sq_cos = dot_fov / (satToPointMag * nadirMag);
-            
-             // Ensure the value is within the valid range for acos
-             const clamped_fov_cos = Math.max(-1, Math.min(1, angle_fov_sq_cos));
-             if (isNaN(clamped_fov_cos)) return false; // Check after clamping
+            const clamped_fov_cos = Math.max(-1, Math.min(1, angle_fov_sq_cos));
+            if (isNaN(clamped_fov_cos)) return false; 
              
             const angle_fov = Math.acos(clamped_fov_cos);
-             if(isNaN(angle_fov)) return false; // Check final angle
+            if(isNaN(angle_fov)) return false; 
 
+            // Return true only if the angle is within the FOV half-angle
             return angle_fov <= fov_rad;
         }
 
 
         // --- Orbital Mechanics ---
-
+        /**
+         * Propagates a satellite's orbit to the current simulation time.
+         * @param {number} index - The satellite index (0, 1, or 2)
+         * @param {number} elapsedSimSeconds - Time since epoch
+         * @param {number} currentGST - Current Greenwich Sidereal Time (Earth's rotation)
+         * @returns {object} A state object { eci, ecef, latLon, ... }
+         */
         function propagateSatellite(index, elapsedSimSeconds, currentGST) {
+            // --- 1. Get Orbital Elements from UI ---
             const params = dom.sats[index];
-            const a = parseFloat(params.a.value);
-            const e = parseFloat(params.e.value);
-            const i_rad = parseFloat(params.i.value) * DEG_TO_RAD;
-            const raan_0_rad = parseFloat(params.raan_0.value) * DEG_TO_RAD; 
-            const aop_0_rad = parseFloat(params.aop_0.value) * DEG_TO_RAD; 
-            const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD; 
+            const a = parseFloat(params.a.value); // Semi-major Axis (km)
+            const e = parseFloat(params.e.value); // Eccentricity
+            const i_rad = parseFloat(params.i.value) * DEG_TO_RAD; // Inclination
+            const raan_0_rad = parseFloat(params.raan_0.value) * DEG_TO_RAD; // Initial RAAN
+            const aop_0_rad = parseFloat(params.aop_0.value) * DEG_TO_RAD;  // Initial Arg of Perigee
+            const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD;   // Initial Mean Anomaly
             
-             // Add basic input validation
-             if (isNaN(a) || isNaN(e) || isNaN(i_rad) || isNaN(raan_0_rad) || isNaN(aop_0_rad) || isNaN(M_0_rad) || a <= EARTH_RADIUS_KM * (1 - e)) {
-                 console.warn(`Invalid orbital parameters for satellite ${index + 1}. Skipping propagation.`);
-                 // Clear previous warning if any, or set a new one
+             // Input validation
+             if (isNaN(a) || isNaN(e) || isNaN(i_rad) || isNaN(raan_0_rad) || isNaN(aop_0_rad) || isNaN(M_0_rad) || a * (1 - e) <= EARTH_RADIUS_KM) {
+                 // Check for NaNs or if perigee is inside the Earth
+                 console.warn(`Invalid orbital parameters for satellite ${index + 1}.`);
                  params.warning.className = 'warning red'; 
                  params.warning.textContent = 'ERROR: Invalid orbital parameters.';
-                 return {}; // Return empty object if parameters are invalid
+                 return {}; // Return empty object on failure
              } else {
-                  // Clear warning if parameters become valid again
+                  // Clear the "invalid" warning if parameters are now valid
                  if (params.warning.classList.contains('red') && params.warning.textContent.includes('Invalid orbital parameters')) {
-                     params.warning.className = 'warning'; 
-                     params.warning.textContent = '';
-                      // Re-check for low perigee warning
-                     const perigee_alt = a * (1 - e) - EARTH_RADIUS_KM;
-                     if (perigee_alt < 80) {
-                         params.warning.classList.add('red'); params.warning.textContent = 'WARNING: Atmospheric re-entry!';
-                     } else if (perigee_alt < 250) {
-                         params.warning.classList.add('amber'); params.warning.textContent = 'CAUTION: High atmospheric drag.';
-                     }
+                     updateSatelliteUI(index); // Re-run UI check for perigee
                  }
              }
 
-            // 1. Calculate J2 Perturbation Rates
-            const n = Math.sqrt(MU_EARTH / (a**3)); // mean motion
-            const T_period = 2 * Math.PI / n; // Orbital period
-            const p = a * (1 - e**2); // semi-latus rectum
-             // Prevent division by zero or invalid p if e is close to 1 and a is small
-             if (isNaN(p) || p <= 0) { 
-                  console.warn(`Invalid semi-latus rectum (p=${p}) for satellite ${index + 1}.`);
+            // --- 2. Calculate J2 Perturbation Rates (due to Earth's oblateness) ---
+            const n = Math.sqrt(MU_EARTH / (a**3)); // Mean motion (rad/s)
+            const T_period = 2 * Math.PI / n; // Orbital period (s)
+            const p = a * (1 - e**2); // Semi-latus rectum
+            
+            if (isNaN(p) || p <= 0) { 
+                  console.warn(`Invalid semi-latus rectum (p=${p}) for sat ${index + 1}.`);
                   return {}; 
-             }
+            }
              
+            // Standard J2 perturbation factor
             const J2_factor = -(3/2) * n * J2_COEFF * (EARTH_RADIUS_KM / p)**2;
             
-            const raan_dot_rad_s = J2_factor * Math.cos(i_rad); // rad/s
-            const aop_dot_rad_s = J2_factor * (5/2 * Math.sin(i_rad)**2 - 2); // rad/s
+            // Rate of change of RAAN (rad/s)
+            const raan_dot_rad_s = J2_factor * Math.cos(i_rad); 
+            // Rate of change of Argument of Perigee (rad/s)
+            const aop_dot_rad_s = J2_factor * (5/2 * Math.sin(i_rad)**2 - 2); 
 
+            // Convert to deg/day for display
             const raan_dot_deg_day = raan_dot_rad_s * RAD_TO_DEG * 86400;
             const aop_dot_deg_day = aop_dot_rad_s * RAD_TO_DEG * 86400;
             
-            // 2. Calculate current elements
+            // --- 3. Calculate Current Orbital Elements ---
+            // Propagate RAAN and AoP based on J2 rates
             let raan_rad = (raan_0_rad + raan_dot_rad_s * elapsedSimSeconds) % (2 * Math.PI);
-            if (raan_rad < 0) raan_rad += 2 * Math.PI; // Ensure positive 0-2PI range
+            if (raan_rad < 0) raan_rad += 2 * Math.PI; // Keep in 0-2PI range
 
             let aop_rad = (aop_0_rad + aop_dot_rad_s * elapsedSimSeconds) % (2 * Math.PI);
-            if (aop_rad < 0) aop_rad += 2 * Math.PI; // Ensure positive 0-2PI range
+            if (aop_rad < 0) aop_rad += 2 * Math.PI; 
             
+            // Propagate Mean Anomaly based on mean motion
             const M_rad = (M_0_rad + n * elapsedSimSeconds) % (2 * Math.PI);
             
-            // 3. Solve Kepler's Equation for Eccentric Anomaly (E)
-            const E_rad = solveKepler(M_rad, e);
+            // --- 4. Solve Kepler's Equation for Eccentric Anomaly (E) ---
+            const E_rad = solveKepler(M_rad, e); // E from M
             if (isNaN(E_rad)) {
-                 console.warn(`Kepler solver failed for satellite ${index + 1}. M=${M_rad}, e=${e}`);
-                 return {}; // Failed to solve
+                 console.warn(`Kepler solver failed for sat ${index + 1}.`);
+                 return {}; 
             }
             
-            // 4. Position in orbital frame (perifocal frame)
+            // --- 5. Position in Orbital (Perifocal) Frame ---
             const x_orb = a * (Math.cos(E_rad) - e);
             const y_orb = a * Math.sqrt(1 - e**2) * Math.sin(E_rad);
-             if (isNaN(x_orb) || isNaN(y_orb)) {
-                  console.warn(`Invalid orbital frame position for satellite ${index + 1}.`);
+            if (isNaN(x_orb) || isNaN(y_orb)) {
+                  console.warn(`Invalid orbital frame position for sat ${index + 1}.`);
                   return {};
-             }
+            }
             
-            // 5. Rotate from orbital frame to ECI frame
+            // --- 6. Rotate from Orbital Frame to ECI (Inertial) Frame ---
+            // This is a 3D rotation using the 3 orbital angles (RAAN, AoP, i)
             const cR = Math.cos(raan_rad), sR = Math.sin(raan_rad);
             const cA = Math.cos(aop_rad), sA = Math.sin(aop_rad);
             const cI = Math.cos(i_rad), sI = Math.sin(i_rad);
             
+            // Rotation matrix components
             const Rxx = cR*cA - sR*sA*cI;
             const Rxy = -cR*sA - sR*cA*cI;
             const Ryx = sR*cA + cR*sA*cI;
@@ -1299,49 +1447,49 @@
             const Rzx = sA*sI;
             const Rzy = cA*sI;
             
+            // Apply rotation
             const eci = {
                 x: Rxx * x_orb + Rxy * y_orb,
                 y: Ryx * x_orb + Ryy * y_orb,
                 z: Rzx * x_orb + Rzy * y_orb
             };
-             if (isNaN(eci.x) || isNaN(eci.y) || isNaN(eci.z)) {
-                  console.warn(`Invalid ECI position for satellite ${index + 1}.`);
+            if (isNaN(eci.x) || isNaN(eci.y) || isNaN(eci.z)) {
+                  console.warn(`Invalid ECI position for sat ${index + 1}.`);
                  return {};
-             }
+            }
             
-            // 6. Rotate from ECI to ECEF (Earth-Fixed)
-             if (isNaN(currentGST)) {
-                  console.warn(`Invalid GST (${currentGST}). Skipping ECEF conversion.`);
+            // --- 7. Rotate from ECI (Inertial) to ECEF (Earth-Fixed) Frame ---
+            // This rotation accounts for the Earth's spinning
+            if (isNaN(currentGST)) {
+                  console.warn(`Invalid GST. Skipping ECEF conversion.`);
                   return {};
-             }
+            }
             const cG = Math.cos(currentGST), sG = Math.sin(currentGST);
             const ecef = {
                 x: eci.x * cG + eci.y * sG,
                 y: -eci.x * sG + eci.y * cG,
                 z: eci.z
             };
-             if (isNaN(ecef.x) || isNaN(ecef.y) || isNaN(ecef.z)) {
-                  console.warn(`Invalid ECEF position for satellite ${index + 1}.`);
+            if (isNaN(ecef.x) || isNaN(ecef.y) || isNaN(ecef.z)) {
+                  console.warn(`Invalid ECEF position for sat ${index + 1}.`);
                  return {};
-             }
+            }
 
-            // 7. Convert ECEF to Lat/Lon
+            // --- 8. Convert ECEF to Geographic (Lat/Lon) ---
             const latLon = ecefToLatLon(ecef);
-             if (!latLon || latLon.length !== 2 || isNaN(latLon[0]) || isNaN(latLon[1])) {
-                 console.warn(`Invalid Lat/Lon conversion for satellite ${index + 1}.`);
+            if (!latLon || isNaN(latLon[0]) || isNaN(latLon[1])) {
+                 console.warn(`Invalid Lat/Lon conversion for sat ${index + 1}.`);
                  return {};
-             }
+            }
             
-            // 8. Calculate current True Anomaly and Altitude for display
+            // --- 9. Calculate Other State Values for Display ---
+            // True Anomaly (angle from perigee)
             const nu_rad = Math.atan2(Math.sqrt(1 - e**2) * Math.sin(E_rad), Math.cos(E_rad) - e);
+            // Radius and altitude
             const r_mag = a * (1 - e * Math.cos(E_rad));
             const alt_km = r_mag - EARTH_RADIUS_KM;
-             if (isNaN(nu_rad) || isNaN(alt_km)) {
-                  console.warn(`Invalid True Anomaly or Altitude for satellite ${index + 1}.`);
-                 // Don't necessarily return empty, maybe just skip nu/alt update?
-                 // Let's return the rest of the valid data for now.
-             }
 
+            // --- 10. Return Complete State ---
             return { 
                 eci, ecef, latLon, 
                 period: T_period, 
@@ -1354,76 +1502,92 @@
         }
 
 
-        // Kepler's equation solver (from original file)
+        /**
+         * Solves Kepler's Equation M = E - e*sin(E) for E (Eccentric Anomaly)
+         * using the Newton-Raphson iterative method.
+         * @param {number} M - Mean Anomaly (radians)
+         * @param {number} e - Eccentricity
+         * @returns {number} E - Eccentric Anomaly (radians)
+         */
         function solveKepler(M, e) {
-            let E = M; const tolerance = 1e-6;
-             let delta = Infinity; // Initialize delta to ensure loop runs
-            for (let i = 0; i < 100 && Math.abs(delta) >= tolerance; i++) { // Added iteration limit check
-                const sinE = Math.sin(E);
-                const cosE = Math.cos(E);
-                const f = E - e * sinE - M;
-                const f_prime = 1 - e * cosE;
+            let E = M; // Initial guess
+            const tolerance = 1e-6; // Stop when error is small enough
+            let delta = Infinity; 
+
+            // Iterate until convergence or max 100 iterations
+            for (let i = 0; i < 100 && Math.abs(delta) >= tolerance; i++) {
+                // f(E) = E - e*sin(E) - M
+                const f = E - e * Math.sin(E) - M;
+                // f'(E) = 1 - e*cos(E)
+                const f_prime = 1 - e * Math.cos(E);
                  
-                 // Avoid division by zero or near-zero
-                 if (Math.abs(f_prime) < 1e-10) { 
-                     console.warn(`Kepler solver: f_prime near zero (f_prime=${f_prime}, E=${E}, e=${e}). Returning last estimate.`);
-                     return E; // Return last E, might be close enough or indicate a problem
-                 }
+                if (Math.abs(f_prime) < 1e-10) { 
+                     console.warn(`Kepler solver: f_prime near zero.`);
+                     break; // Avoid division by zero
+                }
                  
+                // Newton's method: E_next = E - f(E) / f'(E)
                 delta = f / f_prime; 
                 E -= delta;
                 
-                 // Check if E became NaN
-                 if (isNaN(E)) {
-                     console.error(`Kepler solver: E became NaN (M=${M}, e=${e}).`);
-                     return NaN; // Indicate failure
-                 }
+                if (isNaN(E)) {
+                     console.error(`Kepler solver: E became NaN.`);
+                     return NaN; 
+                }
             }
-             // Check if tolerance was met
-             if (Math.abs(delta) >= tolerance) {
-                console.warn(`Kepler solver did not converge within 100 iterations (M=${M}, e=${e}). Last delta: ${delta}`);
-             }
             return E;
         }
 
 
         // --- Coordinate Transforms ---
         
+        /**
+         * Converts ECEF (Earth-Centered, Earth-Fixed) coordinates (km)
+         * to geographic latitude and longitude (degrees).
+         */
         function ecefToLatLon(ecef) {
-            if (isNaN(ecef.x) || isNaN(ecef.y) || isNaN(ecef.z)) return [NaN, NaN]; // Check input
+            if (isNaN(ecef.x) || isNaN(ecef.y) || isNaN(ecef.z)) return [NaN, NaN];
+            
+            // Longitude is the angle in the XY plane
             const lon_rad = Math.atan2(ecef.y, ecef.x);
+            // Project onto XY plane
             const p = Math.sqrt(ecef.x**2 + ecef.y**2);
-            // Handle edge case where p is zero (at the pole)
+            
+            // Handle polar singularity
             if (p < 1e-10) {
-                 // At or very near a pole
                  const lat_rad = (ecef.z >= 0) ? Math.PI / 2 : -Math.PI / 2;
-                 return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG]; // Longitude is arbitrary at pole, atan2 handles it
+                 return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG];
             }
+            
+            // Latitude is the angle up from the XY plane
             const lat_rad = Math.atan2(ecef.z, p);
+            
             const lon_deg = lon_rad * RAD_TO_DEG;
             const lat_deg = lat_rad * RAD_TO_DEG;
-             if (isNaN(lon_deg) || isNaN(lat_deg)) {
+             
+            if (isNaN(lon_deg) || isNaN(lat_deg)) {
                  console.warn("NaN detected during ECEF to Lat/Lon conversion.", ecef);
                  return [NaN, NaN];
-             }
+            }
             return [lon_deg, lat_deg];
         }
 
-        
+        /**
+         * Converts geographic latitude/longitude (degrees) and altitude (km)
+         * to ECEF (Earth-Centered, Earth-Fixed) coordinates (km).
+         * Note: alt_km here is used as the radius.
+         */
         function latLonToECEF(lat_deg, lon_deg, alt_km) {
-             if (isNaN(lat_deg) || isNaN(lon_deg) || isNaN(alt_km)) return {x: NaN, y: NaN, z: NaN}; // Check input
+             if (isNaN(lat_deg) || isNaN(lon_deg) || isNaN(alt_km)) return {x: NaN, y: NaN, z: NaN};
+             
             const lat_rad = lat_deg * DEG_TO_RAD;
             const lon_rad = lon_deg * DEG_TO_RAD;
-            const r = alt_km; // Assume on surface
+            const r = alt_km; // Using alt_km as the radius from center
             
-             const cosLat = Math.cos(lat_rad);
-             const sinLat = Math.sin(lat_rad);
-             const cosLon = Math.cos(lon_rad);
-             const sinLon = Math.sin(lon_rad);
-
-            const x = r * cosLat * cosLon;
-            const y = r * cosLat * sinLon;
-            const z = r * sinLat;
+            const cosLat = Math.cos(lat_rad);
+            const x = r * cosLat * Math.cos(lon_rad);
+            const y = r * cosLat * Math.sin(lon_rad);
+            const z = r * Math.sin(lat_rad);
              
              if (isNaN(x) || isNaN(y) || isNaN(z)) {
                  console.warn("NaN detected during Lat/Lon to ECEF conversion.", {lat_deg, lon_deg, alt_km});
@@ -1434,21 +1598,26 @@
         
         /**
          * Calculates Greenwich Sidereal Time (GST) for a given Date object.
+         * GST is the angle of the Earth's rotation relative to the stars.
          * Formula from Vallado, "Fundamentals of Astrodynamics and Applications".
          */
         function getGST(date) {
              if (!date || isNaN(date.getTime())) {
                  console.error("Invalid date provided to getGST.");
-                 return NaN; // Return NaN if date is invalid
+                 return NaN;
              }
-            const JD = (date.getTime() / 86400000.0) + 2440587.5; // Julian Date
+             
+            // Calculate Julian Date (JD) from JavaScript Date
+            const JD = (date.getTime() / 86400000.0) + 2440587.5; 
+            // Calculate centuries since J2000.0
             const T_UT1 = (JD - 2451545.0) / 36525.0;
+            
              if(isNaN(JD) || isNaN(T_UT1)) {
                  console.error("NaN detected during JD/T_UT1 calculation in getGST.");
                  return NaN;
              }
             
-            // Greenwich mean sidereal time (in degrees)
+            // Calculate Greenwich Mean Sidereal Time (GMST) in degrees
             let GMST_deg = 280.46061837 + 360.98564736629 * (JD - 2451545.0) +
                            0.000387933 * T_UT1**2 - T_UT1**3 / 38710000.0;
              if (isNaN(GMST_deg)) {
@@ -1456,9 +1625,11 @@
                  return NaN;
              }
             
+            // Normalize to 0-360 degrees
             GMST_deg = GMST_deg % 360;
             if (GMST_deg < 0) GMST_deg += 360;
             
+            // Convert to radians for use in calculations
             const gst_rad = GMST_deg * DEG_TO_RAD;
              if(isNaN(gst_rad)) {
                  console.error("NaN detected during final GST conversion to radians.");
@@ -1468,6 +1639,7 @@
         }
 
         // --- Start Application ---
+        // This call begins the entire process.
         init();
 
     </script>
