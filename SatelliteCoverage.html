@@ -280,7 +280,7 @@
             color: #fff;
             border: 1px solid #555;
             border-radius: 5px;
-            padding: 0px;
+            padding: 0px; /* Reduced padding slightly */
             font-family: "Roboto Mono", monospace;
         }
         #sim-time-display {
@@ -534,9 +534,7 @@
                     <label for="speed">Simulation Speed <span class="value" id="speed_val">x500</span></label>
                     <input type="range" id="speed" min="0" max="5000" step="1" value="500">
                 </div>
-                <button id="reset-sim-btn" class="sim-button">Reset to Current Epoch</button>
-                <button id="fetch-iss-btn" class="sim-button" style="margin-top: 5px;">Load Last ISS Location</button>
-                
+                <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
                 <h2>SIMULATION STATE</h2>
                 <div id="sim-time-display"></div>
             </div>
@@ -545,26 +543,22 @@
                 <h2>COVERAGE STATISTICS</h2>
                 <div class="display-item">
                     <span class="display-label">0 Satellites</span>
-                    <span class="display-value" id="stat-0">0.0%</span>
-                </div>
+                    <span class="display-value" id="stat-0">0%</span> </div>
                 <div class="stat-bar"><div id="stat-bar-0" class="stat-bar-fill"></div></div>
                 
                 <div class="display-item">
                     <span class="display-label">1 Satellite</span>
-                    <span class="display-value" id="stat-1">0.0%</span>
-                </div>
+                    <span class="display-value" id="stat-1">0%</span> </div>
                 <div class="stat-bar"><div id="stat-bar-1" class="stat-bar-fill"></div></div>
 
                 <div class="display-item">
                     <span class="display-label">2 Satellites</span>
-                    <span class="display-value" id="stat-2">0.0%</span>
-                </div>
+                    <span class="display-value" id="stat-2">0%</span> </div>
                 <div class="stat-bar"><div id="stat-bar-2" class="stat-bar-fill"></div></div>
 
                 <div class="display-item">
                     <span class="display-label">3 Satellites</span>
-                    <span class="display-value" id="stat-3">0.0%</span>
-                </div>
+                    <span class="display-value" id="stat-3">0%</span> </div>
                 <div class="stat-bar"><div id="stat-bar-3" class="stat-bar-fill"></div></div>
             </div>
 
@@ -632,7 +626,7 @@
         // --- Worker Message Handler ---
         self.onmessage = function(e) {
             const satParams = e.data;
-            const numSamples = 5000;
+            const numSamples = 50000;
             let counts = [0, 0, 0, 0];
 
             if (satParams.length === 0) {
@@ -698,7 +692,7 @@
             speedValue: document.getElementById('speed_val'),
             simTimeDisplay: document.getElementById('sim-time-display'),
             resetSimBtn: document.getElementById('reset-sim-btn'),
-            fetchIssBtn: document.getElementById('fetch-iss-btn'), // NEW
+            // fetchIssBtn removed
             stats: {
                 val: [
                     document.getElementById('stat-0'), 
@@ -717,8 +711,8 @@
                 a: document.getElementById(`a-${i}`),
                 e: document.getElementById(`e-${i}`),
                 i: document.getElementById(`i-${i}`),
-                raan_0: document.getElementById(`raan_0-${i}`), // MODIFIED
-                aop_0: document.getElementById(`aop_0-${i}`), // MODIFIED
+                raan_0: document.getElementById(`raan_0-${i}`), 
+                aop_0: document.getElementById(`aop_0-${i}`), 
                 m0: document.getElementById(`m0-${i}`), 
                 fov: document.getElementById(`fov-${i}`),
                 track: document.getElementById(`track-${i}`),
@@ -727,13 +721,12 @@
                     a: document.getElementById(`a-${i}_val`),
                     e: document.getElementById(`e-${i}_val`),
                     i: document.getElementById(`i-${i}_val`),
-                    raan_0: document.getElementById(`raan_0-${i}_val`), // MODIFIED
-                    aop_0: document.getElementById(`aop_0-${i}_val`), // MODIFIED
+                    raan_0: document.getElementById(`raan_0-${i}_val`), 
+                    aop_0: document.getElementById(`aop_0-${i}_val`), 
                     m0: document.getElementById(`m0-${i}_val`), 
                     fov: document.getElementById(`fov-${i}_val`),
                     nu: document.getElementById(`nu_val-${i}`), 
                     alt: document.getElementById(`alt_val-${i}`),
-                    // NEW
                     raan_current: document.getElementById(`raan_val-${i}`),
                     aop_current: document.getElementById(`aop_val-${i}`),
                     raan_dot: document.getElementById(`raan_dot_val-${i}`),
@@ -753,110 +746,9 @@
             window.addEventListener('resize', onWindowResize);
         }
 
-        // --- NEW: ISS TLE Fetching ---
-        async function loadIssTle() {
-            const url = "https://tle.ivanstanojevic.me/api/tle/25544";
-            dom.fetchIssBtn.textContent = "Loading...";
-            dom.fetchIssBtn.disabled = true;
-            
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const tleData = await response.json();
-                
-                if (tleData.line1 && tleData.line2) {
-                    parseAndApplyTle(tleData.line1, tleData.line2);
-                } else {
-                    throw new Error("Invalid TLE data received.");
-                }
-
-            } catch (error) {
-                console.error("Failed to fetch ISS TLE:", error);
-                alert("Failed to load ISS TLE data. See console for details.");
-            } finally {
-                dom.fetchIssBtn.textContent = "Last ISS Location Loaded";
-                dom.fetchIssBtn.disabled = false;
-            }
-        }
-
-        function parseAndApplyTle(line1, line2) {
-            try {
-                // --- Parse Epoch (Line 1) ---
-                const yearStr = line1.substring(18, 20);
-                const epochYear = parseInt(yearStr) < 57 ? 2000 + parseInt(yearStr) : 1900 + parseInt(yearStr);
-                const epochDay = parseFloat(line1.substring(20, 32)); // Day of year (e.g., 295.12345)
-                
-                // Create Date object from Year and Day-of-Year (UTC)
-                const epochDate = new Date(Date.UTC(epochYear, 0, 1)); // Jan 1 00:00 UTC
-                epochDate.setMilliseconds(epochDate.getMilliseconds() + (epochDay - 1) * 86400 * 1000);
-
-                // --- Parse Orbital Elements (Line 2) ---
-                const inclination_deg = parseFloat(line2.substring(8, 16));
-                const raan_deg = parseFloat(line2.substring(17, 25));
-                const eccentricity = parseFloat("." + line2.substring(26, 33)); // Implied decimal
-                const aop_deg = parseFloat(line2.substring(34, 42));
-                const m_deg = parseFloat(line2.substring(43, 51));
-                const n_rev_day = parseFloat(line2.substring(52, 63)); // Mean motion in revs/day
-
-                // --- Calculate Semi-major Axis (a) ---
-                const n_rad_s = n_rev_day * (2 * Math.PI) / 86400.0;
-                const a_km = Math.cbrt(MU_EARTH / (n_rad_s ** 2));
-                
-                // --- Apply Values to DOM ---
-
-                // 1. Set Simulation Epoch and Speed
-                // TLE epoch is UTC. datetime-local input needs YYYY-MM-DDTHH:MM format.
-                // .toISOString() returns UTC, so slicing it is correct.
-                dom.epochInput.value = epochDate.toISOString().slice(0, 16);
-                
-                dom.speedSlider.value = 1;
-                dom.speedValue.textContent = 'x1';
-
-                // 2. Set Satellite Parameters
-                const tleParams = {
-                    a: a_km,
-                    e: eccentricity,
-                    i: inclination_deg,
-                    raan_0: raan_deg,
-                    aop_0: aop_deg,
-                    m0: m_deg,
-                    fov: 120
-                };
-
-                for (let i = 0; i < 3; i++) {
-                    const sat = dom.sats[i];
-                    
-                    // Set value, clamping to min/max of the slider
-                    sat.a.value = Math.max(parseFloat(sat.a.min), Math.min(parseFloat(sat.a.max), tleParams.a));
-                    sat.e.value = Math.max(parseFloat(sat.e.min), Math.min(parseFloat(sat.e.max), tleParams.e));
-                    sat.i.value = Math.max(parseFloat(sat.i.min), Math.min(parseFloat(sat.i.max), tleParams.i));
-                    sat.raan_0.value = Math.max(parseFloat(sat.raan_0.min), Math.min(parseFloat(sat.raan_0.max), tleParams.raan_0));
-                    sat.aop_0.value = Math.max(parseFloat(sat.aop_0.min), Math.min(parseFloat(sat.aop_0.max), tleParams.aop_0));
-                    sat.m0.value = Math.max(parseFloat(sat.m0.min), Math.min(parseFloat(sat.m0.max), tleParams.m0));
-                    sat.fov.value = Math.max(parseFloat(sat.fov.min), Math.min(parseFloat(sat.fov.max), tleParams.fov));
-
-                    // IMPORTANT: Update UI displays
-                    updateSatelliteUI(i);
-                }
-
-                // 3. Set display toggles as requested
-                dom.sats[0].track.checked = false;
-                dom.sats[0].cov.checked = false;
-                dom.sats[1].track.checked = false;
-                dom.sats[1].cov.checked = false;
-                dom.sats[2].track.checked = true;
-                dom.sats[2].cov.checked = true;
-
-                // 4. Reset simulation to apply new epoch and orbital elements
-                resetSimulation();
-            
-            } catch (err) {
-                console.error("Error parsing TLE data:", err);
-                alert("Failed to parse TLE data. See console.");
-            }
-        }
+        // --- ISS TLE Fetching Functions Removed ---
+        // loadIssTle() removed
+        // parseAndApplyTle() removed
 
         // --- UI Setup ---
         function setupUI() {
@@ -881,7 +773,7 @@
 
             // Reset button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
-            dom.fetchIssBtn.addEventListener('click', loadIssTle); // NEW
+            // ISS button listener removed
 
             // Satellite control sliders
             dom.sats.forEach((sat, index) => {
@@ -889,8 +781,8 @@
                 sat.a.addEventListener('input', updateFn);
                 sat.e.addEventListener('input', updateFn);
                 sat.i.addEventListener('input', updateFn);
-                sat.raan_0.addEventListener('input', updateFn); // MODIFIED
-                sat.aop_0.addEventListener('input', updateFn); // MODIFIED
+                sat.raan_0.addEventListener('input', updateFn); 
+                sat.aop_0.addEventListener('input', updateFn); 
                 sat.m0.addEventListener('input', updateFn); 
                 sat.fov.addEventListener('input', updateFn);
                 sat.track.addEventListener('change', () => {
@@ -911,8 +803,8 @@
             sat.val.a.textContent = a.toFixed(0);
             sat.val.e.textContent = e.toFixed(3);
             sat.val.i.textContent = parseFloat(sat.i.value).toFixed(1);
-            sat.val.raan_0.textContent = parseFloat(sat.raan_0.value).toFixed(1); // MODIFIED
-            sat.val.aop_0.textContent = parseFloat(sat.aop_0.value).toFixed(1); // MODIFIED
+            sat.val.raan_0.textContent = parseFloat(sat.raan_0.value).toFixed(1); 
+            sat.val.aop_0.textContent = parseFloat(sat.aop_0.value).toFixed(1); 
             sat.val.m0.textContent = parseFloat(sat.m0.value).toFixed(1); 
             sat.val.fov.textContent = `${sat.fov.value}°`;
             
@@ -950,8 +842,10 @@
                     const { counts, numSamples } = e.data;
                     counts.forEach((count, i) => {
                         const percent = (count / numSamples) * 100;
-                        dom.stats.val[i].textContent = `${percent.toFixed(1)}%`;
-                        dom.stats.bar[i].style.width = `${percent}%`;
+                        // MODIFIED: Round percentage to nearest whole number
+                        const roundedPercent = Math.round(percent);
+                        dom.stats.val[i].textContent = `${roundedPercent}%`;
+                        dom.stats.bar[i].style.width = `${roundedPercent}%`;
                     });
                 };
                 
@@ -1061,10 +955,20 @@
 
         // --- Simulation ---
         function resetSimulation() {
-            epochDate = new Date(dom.epochInput.value);
-            if (isNaN(epochDate)) {
-                epochDate = new Date(); // Fallback
+            // Treat the datetime-local input value as UTC
+            let epochString = dom.epochInput.value;
+            if (epochString && !epochString.endsWith('Z')) {
+                epochString += 'Z'; 
             }
+            epochDate = new Date(epochString);
+            
+            if (isNaN(epochDate)) {
+                 console.warn("Invalid Epoch Date from input, falling back to current time.");
+                epochDate = new Date(); // Fallback
+                 // Update input to reflect fallback
+                dom.epochInput.value = epochDate.toISOString().slice(0, 16);
+            }
+            
             currentSimDate = new Date(epochDate.getTime());
             epochGST = getGST(epochDate);
             elapsedSimSeconds = 0;
@@ -1093,7 +997,7 @@
             
             elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
             
-            // Update time display
+            // Update time display - using toUTCString() which includes GMT (equivalent to UTC)
             dom.simTimeDisplay.textContent = currentSimDate.toUTCString();
             
             // Calculate current GST
@@ -1103,34 +1007,47 @@
             const satCoverageParams = [];
             dom.sats.forEach((sat, i) => {
                 const state = propagateSatellite(i, elapsedSimSeconds, currentGST);
-                satelliteStates[i] = state;
+                satelliteStates[i] = state; // Store state even if incomplete
 
-                // Update state displays
+                // Update state displays only if propagation succeeded
                 if (state.nu_rad !== undefined && state.alt_km !== undefined) {
                     let nu_deg = state.nu_rad * RAD_TO_DEG;
                     if (nu_deg < 0) nu_deg += 360;
                     sat.val.nu.textContent = `${nu_deg.toFixed(1)}°`;
                     sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
+                } else { // Clear if propagation failed or values missing
+                    sat.val.nu.textContent = '--';
+                    sat.val.alt.textContent = '-- km';
                 }
 
-                // MODIFIED: Update RAAN and AOP displays
                 if (state.current_raan_rad !== undefined) { 
                     sat.val.raan_current.textContent = `${(state.current_raan_rad * RAD_TO_DEG).toFixed(2)}°`;
                     sat.val.aop_current.textContent = `${(state.current_aop_rad * RAD_TO_DEG).toFixed(2)}°`;
                     sat.val.raan_dot.textContent = `${state.raan_dot_deg_day.toFixed(3)}°/day`;
                     sat.val.aop_dot.textContent = `${state.aop_dot_deg_day.toFixed(3)}°/day`;
+                } else { // Clear if propagation failed or values missing
+                     sat.val.raan_current.textContent = '--°';
+                    sat.val.aop_current.textContent = '--°';
+                    sat.val.raan_dot.textContent = '--°/day';
+                    sat.val.aop_dot.textContent = '--°/day';
                 }
 
-                // Check if coverage is enabled
+
+                // Check if coverage is enabled and state is valid
                 if (state.ecef && sat.cov.checked) { 
                     const fov_rad = parseFloat(sat.fov.value) * DEG_TO_RAD / 2.0;
                     const satPos = state.ecef;
                     const r_sat = Math.sqrt(satPos.x**2 + satPos.y**2 + satPos.z**2);
-                    const nadir = { x: -satPos.x, y: -satPos.y, z: -satPos.z };
-                    const horizon_angle_rad = Math.acos(Math.min(1, EARTH_RADIUS_KM / r_sat));
-                    satCoverageParams.push({
-                        satPos, r_sat, fov_rad, nadir, nadirMag: r_sat, horizon_angle_rad
-                    });
+                    // Check for invalid r_sat (could happen if propagation fails)
+                    if (isNaN(r_sat) || r_sat <= 0) {
+                         console.warn(`Invalid satellite radius calculated for satellite ${i+1}. Skipping coverage calculation.`);
+                    } else {
+                        const nadir = { x: -satPos.x, y: -satPos.y, z: -satPos.z };
+                        const horizon_angle_rad = Math.acos(Math.min(1, EARTH_RADIUS_KM / r_sat));
+                        satCoverageParams.push({
+                            satPos, r_sat, fov_rad, nadir, nadirMag: r_sat, horizon_angle_rad
+                        });
+                    }
                 }
             });
 
@@ -1139,7 +1056,7 @@
             updateHeatmap(satCoverageParams); // Now fast enough to run every frame
             
             const now = performance.now();
-            if (statsWorker && now - lastStatsUpdateTime > 500) { // Update stats
+            if (statsWorker && now - lastStatsUpdateTime > 500) { // Update stats 2/sec
                 statsWorker.postMessage(satCoverageParams);
                 lastStatsUpdateTime = now;
             }
@@ -1149,10 +1066,20 @@
 
         function drawMapElements() {
             satelliteStates.forEach((state, i) => {
-                if (!state.latLon) return;
+                if (!state.latLon || isNaN(state.latLon[0]) || isNaN(state.latLon[1])) {
+                     // Hide marker if state is invalid
+                     svg.select(`#sat-marker-${i}`).style("display", "none");
+                    return;
+                }
                 
                 const [lon, lat] = state.latLon;
                 const coords = projection([lon, lat]);
+
+                // Check if projection returned valid screen coordinates
+                if (!coords || isNaN(coords[0]) || isNaN(coords[1])) {
+                    svg.select(`#sat-marker-${i}`).style("display", "none");
+                    return; // Skip drawing if coordinates are invalid
+                }
                 
                 // Update marker
                 svg.select(`#sat-marker-${i}`)
@@ -1165,11 +1092,15 @@
                     const twoOrbitsAgo = elapsedSimSeconds - 2 * state.period;
                     // Filter old points
                     groundTracks[i] = groundTracks[i].filter(point => point[2] >= twoOrbitsAgo);
-                    // Add new point
-                    groundTracks[i].push([lon, lat, elapsedSimSeconds]);
+                    // Add new point only if valid
+                    if (!isNaN(lon) && !isNaN(lat)) {
+                        groundTracks[i].push([lon, lat, elapsedSimSeconds]);
+                    }
                     
-                    // Create GeoJSON LineString
-                    const lineCoords = groundTracks[i].map(p => [p[0], p[1]]);
+                    // Create GeoJSON LineString (filter out any potential invalid points added before checks)
+                    const lineCoords = groundTracks[i]
+                                        .filter(p => !isNaN(p[0]) && !isNaN(p[1]))
+                                        .map(p => [p[0], p[1]]);
                     const geoJsonLine = { type: "LineString", coordinates: lineCoords };
                     
                     // Bind data and draw with path generator
@@ -1225,15 +1156,27 @@
          * All inputs must be pre-calculated for performance.
          */
         function isPointVisible(pointECEF, satPos, r_sat, nadir, nadirMag, fov_rad, horizon_angle_rad) {
+             // Add checks for NaN or invalid inputs at the beginning
+            if (isNaN(r_sat) || r_sat <= 0 || isNaN(fov_rad) || isNaN(horizon_angle_rad) || !satPos || isNaN(satPos.x)) {
+                return false;
+            }
+            
             // 1. Horizon Check
             const dot_center = pointECEF.x * satPos.x + 
                                pointECEF.y * satPos.y + 
                                pointECEF.z * satPos.z;
+             // Check if dot_center is valid before division
+             if (isNaN(dot_center)) return false; 
             const angle_center_sq_cos = dot_center / (EARTH_RADIUS_KM * r_sat);
-            const angle_center = Math.acos(Math.max(-1, Math.min(1, angle_center_sq_cos)));
             
-            if (angle_center > horizon_angle_rad) {
-                return false; // Point is behind the horizon
+             // Ensure the value is within the valid range for acos
+             const clamped_cos = Math.max(-1, Math.min(1, angle_center_sq_cos));
+             if (isNaN(clamped_cos)) return false; // Check after clamping
+             
+            const angle_center = Math.acos(clamped_cos);
+            
+            if (isNaN(angle_center) || angle_center > horizon_angle_rad) {
+                return false; // Point is behind the horizon or calculation failed
             }
             
             // 2. FOV Check
@@ -1242,16 +1185,32 @@
                 y: pointECEF.y - satPos.y,
                 z: pointECEF.z - satPos.z
             };
+             // Check for NaN components
+            if (isNaN(vec_sat_to_point.x) || isNaN(vec_sat_to_point.y) || isNaN(vec_sat_to_point.z)) return false;
+            
             const satToPointMag = Math.sqrt(vec_sat_to_point.x**2 + vec_sat_to_point.y**2 + vec_sat_to_point.z**2);
+             if (isNaN(satToPointMag) || satToPointMag <= 0) return false; // Check magnitude
 
             const dot_fov = vec_sat_to_point.x * nadir.x + 
                             vec_sat_to_point.y * nadir.y + 
                             vec_sat_to_point.z * nadir.z;
+             if (isNaN(dot_fov)) return false; // Check dot product
+             
+             // Check nadirMag before division
+             if (isNaN(nadirMag) || nadirMag <= 0) return false;
+
             const angle_fov_sq_cos = dot_fov / (satToPointMag * nadirMag);
-            const angle_fov = Math.acos(Math.max(-1, Math.min(1, angle_fov_sq_cos)));
+            
+             // Ensure the value is within the valid range for acos
+             const clamped_fov_cos = Math.max(-1, Math.min(1, angle_fov_sq_cos));
+             if (isNaN(clamped_fov_cos)) return false; // Check after clamping
+             
+            const angle_fov = Math.acos(clamped_fov_cos);
+             if(isNaN(angle_fov)) return false; // Check final angle
 
             return angle_fov <= fov_rad;
         }
+
 
         // --- Orbital Mechanics ---
 
@@ -1260,21 +1219,47 @@
             const a = parseFloat(params.a.value);
             const e = parseFloat(params.e.value);
             const i_rad = parseFloat(params.i.value) * DEG_TO_RAD;
-            // Get epoch values
-            const raan_0_rad = parseFloat(params.raan_0.value) * DEG_TO_RAD; // MODIFIED
-            const aop_0_rad = parseFloat(params.aop_0.value) * DEG_TO_RAD; // MODIFIED
+            const raan_0_rad = parseFloat(params.raan_0.value) * DEG_TO_RAD; 
+            const aop_0_rad = parseFloat(params.aop_0.value) * DEG_TO_RAD; 
             const M_0_rad = parseFloat(params.m0.value) * DEG_TO_RAD; 
+            
+             // Add basic input validation
+             if (isNaN(a) || isNaN(e) || isNaN(i_rad) || isNaN(raan_0_rad) || isNaN(aop_0_rad) || isNaN(M_0_rad) || a <= EARTH_RADIUS_KM * (1 - e)) {
+                 console.warn(`Invalid orbital parameters for satellite ${index + 1}. Skipping propagation.`);
+                 // Clear previous warning if any, or set a new one
+                 params.warning.className = 'warning red'; 
+                 params.warning.textContent = 'ERROR: Invalid orbital parameters.';
+                 return {}; // Return empty object if parameters are invalid
+             } else {
+                  // Clear warning if parameters become valid again
+                 if (params.warning.classList.contains('red') && params.warning.textContent.includes('Invalid orbital parameters')) {
+                     params.warning.className = 'warning'; 
+                     params.warning.textContent = '';
+                      // Re-check for low perigee warning
+                     const perigee_alt = a * (1 - e) - EARTH_RADIUS_KM;
+                     if (perigee_alt < 80) {
+                         params.warning.classList.add('red'); params.warning.textContent = 'WARNING: Atmospheric re-entry!';
+                     } else if (perigee_alt < 250) {
+                         params.warning.classList.add('amber'); params.warning.textContent = 'CAUTION: High atmospheric drag.';
+                     }
+                 }
+             }
 
             // 1. Calculate J2 Perturbation Rates
             const n = Math.sqrt(MU_EARTH / (a**3)); // mean motion
             const T_period = 2 * Math.PI / n; // Orbital period
             const p = a * (1 - e**2); // semi-latus rectum
+             // Prevent division by zero or invalid p if e is close to 1 and a is small
+             if (isNaN(p) || p <= 0) { 
+                  console.warn(`Invalid semi-latus rectum (p=${p}) for satellite ${index + 1}.`);
+                  return {}; 
+             }
+             
             const J2_factor = -(3/2) * n * J2_COEFF * (EARTH_RADIUS_KM / p)**2;
             
             const raan_dot_rad_s = J2_factor * Math.cos(i_rad); // rad/s
             const aop_dot_rad_s = J2_factor * (5/2 * Math.sin(i_rad)**2 - 2); // rad/s
 
-            // NEW: Convert rates to deg/day for display
             const raan_dot_deg_day = raan_dot_rad_s * RAD_TO_DEG * 86400;
             const aop_dot_deg_day = aop_dot_rad_s * RAD_TO_DEG * 86400;
             
@@ -1289,18 +1274,24 @@
             
             // 3. Solve Kepler's Equation for Eccentric Anomaly (E)
             const E_rad = solveKepler(M_rad, e);
+            if (isNaN(E_rad)) {
+                 console.warn(`Kepler solver failed for satellite ${index + 1}. M=${M_rad}, e=${e}`);
+                 return {}; // Failed to solve
+            }
             
             // 4. Position in orbital frame (perifocal frame)
             const x_orb = a * (Math.cos(E_rad) - e);
             const y_orb = a * Math.sqrt(1 - e**2) * Math.sin(E_rad);
+             if (isNaN(x_orb) || isNaN(y_orb)) {
+                  console.warn(`Invalid orbital frame position for satellite ${index + 1}.`);
+                  return {};
+             }
             
             // 5. Rotate from orbital frame to ECI frame
-            // *** Use the new current raan_rad and aop_rad ***
             const cR = Math.cos(raan_rad), sR = Math.sin(raan_rad);
             const cA = Math.cos(aop_rad), sA = Math.sin(aop_rad);
             const cI = Math.cos(i_rad), sI = Math.sin(i_rad);
             
-            // 3-1-3 Rotation Matrix (Orbital -> ECI)
             const Rxx = cR*cA - sR*sA*cI;
             const Rxy = -cR*sA - sR*cA*cI;
             const Ryx = sR*cA + cR*sA*cI;
@@ -1313,24 +1304,44 @@
                 y: Ryx * x_orb + Ryy * y_orb,
                 z: Rzx * x_orb + Rzy * y_orb
             };
+             if (isNaN(eci.x) || isNaN(eci.y) || isNaN(eci.z)) {
+                  console.warn(`Invalid ECI position for satellite ${index + 1}.`);
+                 return {};
+             }
             
             // 6. Rotate from ECI to ECEF (Earth-Fixed)
+             if (isNaN(currentGST)) {
+                  console.warn(`Invalid GST (${currentGST}). Skipping ECEF conversion.`);
+                  return {};
+             }
             const cG = Math.cos(currentGST), sG = Math.sin(currentGST);
             const ecef = {
                 x: eci.x * cG + eci.y * sG,
                 y: -eci.x * sG + eci.y * cG,
                 z: eci.z
             };
-            
+             if (isNaN(ecef.x) || isNaN(ecef.y) || isNaN(ecef.z)) {
+                  console.warn(`Invalid ECEF position for satellite ${index + 1}.`);
+                 return {};
+             }
+
             // 7. Convert ECEF to Lat/Lon
             const latLon = ecefToLatLon(ecef);
+             if (!latLon || latLon.length !== 2 || isNaN(latLon[0]) || isNaN(latLon[1])) {
+                 console.warn(`Invalid Lat/Lon conversion for satellite ${index + 1}.`);
+                 return {};
+             }
             
             // 8. Calculate current True Anomaly and Altitude for display
             const nu_rad = Math.atan2(Math.sqrt(1 - e**2) * Math.sin(E_rad), Math.cos(E_rad) - e);
             const r_mag = a * (1 - e * Math.cos(E_rad));
             const alt_km = r_mag - EARTH_RADIUS_KM;
+             if (isNaN(nu_rad) || isNaN(alt_km)) {
+                  console.warn(`Invalid True Anomaly or Altitude for satellite ${index + 1}.`);
+                 // Don't necessarily return empty, maybe just skip nu/alt update?
+                 // Let's return the rest of the valid data for now.
+             }
 
-            // NEW: Return all the required values
             return { 
                 eci, ecef, latLon, 
                 period: T_period, 
@@ -1342,37 +1353,83 @@
             };
         }
 
+
         // Kepler's equation solver (from original file)
         function solveKepler(M, e) {
             let E = M; const tolerance = 1e-6;
-            for (let i = 0; i < 100; i++) {
-                const f = E - e * Math.sin(E) - M;
-                const f_prime = 1 - e * Math.cos(E);
-                const delta = f / f_prime; E -= delta;
-                if (Math.abs(delta) < tolerance) return E;
+             let delta = Infinity; // Initialize delta to ensure loop runs
+            for (let i = 0; i < 100 && Math.abs(delta) >= tolerance; i++) { // Added iteration limit check
+                const sinE = Math.sin(E);
+                const cosE = Math.cos(E);
+                const f = E - e * sinE - M;
+                const f_prime = 1 - e * cosE;
+                 
+                 // Avoid division by zero or near-zero
+                 if (Math.abs(f_prime) < 1e-10) { 
+                     console.warn(`Kepler solver: f_prime near zero (f_prime=${f_prime}, E=${E}, e=${e}). Returning last estimate.`);
+                     return E; // Return last E, might be close enough or indicate a problem
+                 }
+                 
+                delta = f / f_prime; 
+                E -= delta;
+                
+                 // Check if E became NaN
+                 if (isNaN(E)) {
+                     console.error(`Kepler solver: E became NaN (M=${M}, e=${e}).`);
+                     return NaN; // Indicate failure
+                 }
             }
+             // Check if tolerance was met
+             if (Math.abs(delta) >= tolerance) {
+                console.warn(`Kepler solver did not converge within 100 iterations (M=${M}, e=${e}). Last delta: ${delta}`);
+             }
             return E;
         }
+
 
         // --- Coordinate Transforms ---
         
         function ecefToLatLon(ecef) {
+            if (isNaN(ecef.x) || isNaN(ecef.y) || isNaN(ecef.z)) return [NaN, NaN]; // Check input
             const lon_rad = Math.atan2(ecef.y, ecef.x);
             const p = Math.sqrt(ecef.x**2 + ecef.y**2);
+            // Handle edge case where p is zero (at the pole)
+            if (p < 1e-10) {
+                 // At or very near a pole
+                 const lat_rad = (ecef.z >= 0) ? Math.PI / 2 : -Math.PI / 2;
+                 return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG]; // Longitude is arbitrary at pole, atan2 handles it
+            }
             const lat_rad = Math.atan2(ecef.z, p);
-            return [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG];
+            const lon_deg = lon_rad * RAD_TO_DEG;
+            const lat_deg = lat_rad * RAD_TO_DEG;
+             if (isNaN(lon_deg) || isNaN(lat_deg)) {
+                 console.warn("NaN detected during ECEF to Lat/Lon conversion.", ecef);
+                 return [NaN, NaN];
+             }
+            return [lon_deg, lat_deg];
         }
+
         
         function latLonToECEF(lat_deg, lon_deg, alt_km) {
+             if (isNaN(lat_deg) || isNaN(lon_deg) || isNaN(alt_km)) return {x: NaN, y: NaN, z: NaN}; // Check input
             const lat_rad = lat_deg * DEG_TO_RAD;
             const lon_rad = lon_deg * DEG_TO_RAD;
             const r = alt_km; // Assume on surface
             
-            return {
-                x: r * Math.cos(lat_rad) * Math.cos(lon_rad),
-                y: r * Math.cos(lat_rad) * Math.sin(lon_rad),
-                z: r * Math.sin(lat_rad)
-            };
+             const cosLat = Math.cos(lat_rad);
+             const sinLat = Math.sin(lat_rad);
+             const cosLon = Math.cos(lon_rad);
+             const sinLon = Math.sin(lon_rad);
+
+            const x = r * cosLat * cosLon;
+            const y = r * cosLat * sinLon;
+            const z = r * sinLat;
+             
+             if (isNaN(x) || isNaN(y) || isNaN(z)) {
+                 console.warn("NaN detected during Lat/Lon to ECEF conversion.", {lat_deg, lon_deg, alt_km});
+                 return {x: NaN, y: NaN, z: NaN};
+             }
+            return {x, y, z};
         }
         
         /**
@@ -1380,17 +1437,34 @@
          * Formula from Vallado, "Fundamentals of Astrodynamics and Applications".
          */
         function getGST(date) {
+             if (!date || isNaN(date.getTime())) {
+                 console.error("Invalid date provided to getGST.");
+                 return NaN; // Return NaN if date is invalid
+             }
             const JD = (date.getTime() / 86400000.0) + 2440587.5; // Julian Date
             const T_UT1 = (JD - 2451545.0) / 36525.0;
+             if(isNaN(JD) || isNaN(T_UT1)) {
+                 console.error("NaN detected during JD/T_UT1 calculation in getGST.");
+                 return NaN;
+             }
             
             // Greenwich mean sidereal time (in degrees)
             let GMST_deg = 280.46061837 + 360.98564736629 * (JD - 2451545.0) +
                            0.000387933 * T_UT1**2 - T_UT1**3 / 38710000.0;
+             if (isNaN(GMST_deg)) {
+                 console.error("NaN detected during GMST_deg calculation in getGST.");
+                 return NaN;
+             }
             
             GMST_deg = GMST_deg % 360;
             if (GMST_deg < 0) GMST_deg += 360;
             
-            return GMST_deg * DEG_TO_RAD;
+            const gst_rad = GMST_deg * DEG_TO_RAD;
+             if(isNaN(gst_rad)) {
+                 console.error("NaN detected during final GST conversion to radians.");
+                 return NaN;
+             }
+            return gst_rad;
         }
 
         // --- Start Application ---
