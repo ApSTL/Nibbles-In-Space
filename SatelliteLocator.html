@@ -63,7 +63,7 @@
 
         #toggle-button {
             position: absolute;
-            top: 5%;
+            top: 2%;
             left: 100%;
             transform: translateX(0);
             width: 48px;
@@ -87,6 +87,75 @@
             transform: translateX(-10%);
 			background: #ed1248;
         }
+        
+        /* NEW: Mini-Panel Styles */
+        #mini-panel {
+            position: absolute;
+            top: 55px; /* Space from the top edge */
+            left: 50%;
+            transform: translateX(-50%) translateY(-150%); /* Start hidden upwards */
+            width: auto;
+            z-index: 5; /* Below main panel, above map */
+            display: block;
+            align-items: center;
+            gap: 25px;
+            padding: 8px 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 0px solid rgba(190, 153, 5, 0.5);
+            border-radius: 10px 10px 10px 10px;
+            backdrop-filter: blur(3px);
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            transition: all 0.35s ease-in-out;
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        /* Show mini-panel when main panel is collapsed */
+        #info.collapsed ~ #mini-panel {
+            transform: translateX(0%) translateY(0);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .mini-panel-group {
+            display: flex;
+			width: 90vh;
+			align-items: center;
+            gap: 10px;
+			line-height: 200%;
+        }
+
+        #mini-panel label {
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #aaa;
+            margin-bottom: 0;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+        
+        #mini-panel .value { /* Target the speed value span */
+             color: #ccc;
+             font-weight: normal;
+             min-width: 35px; /* Give it space */
+        }
+
+        #mini-panel #sim-time-display {
+            /* Override existing styles from main panel */
+            font-size: 1.0em;
+            color: #BE9905;
+            padding: 0;
+            background: none;
+            margin-bottom: 0;
+            min-width: 190px; /* Give it space */
+            text-align: left;
+        }
+
+        #mini-panel input[type="range"] {
+            width: 150px; /* Fixed width for the slider */
+        }
+        /* End New Mini-Panel Styles */
+
 
         h1 {
             margin-top: 0; 
@@ -208,40 +277,10 @@
         .shadow-zone {
             fill: #000;
             stroke: none;
-            /* This opacity will stack for each layer:
-              - Civil: 0.2
-              - Nautical: 0.2 + 0.2 = 0.4
-              - Astronomical: 0.2 + 0.2 + 0.2 = 0.6
-              - Night: 0.2 + 0.2 + 0.2 + 0.2 = 0.8
-            */
             opacity: 0.2; 
         }
 
-        /* Tab Styles */
-        .tabs {
-            display: flex;
-            justify-content: space-around;
-            margin-bottom: 10px;
-        }
-        .tab-button {
-            flex-grow: 1;
-            padding: 8px 5px;
-            background-color: #333;
-            color: #ddd;
-            border: 1px solid #555;
-            cursor: pointer;
-            font-family: "Roboto Mono", monospace;
-            transition: background-color 0.2s, color 0.2s;
-            border-radius: 5px 5px 0 0;
-        }
-        .tab-button:not(:last-child) { border-right: none; }
-        .tab-button.active {
-            background-color: #BE9905;
-            color: #000;
-            font-weight: bold;
-        }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        /* REMOVED Tab Styles */
 
         /* Toggle Switch Styles */
         .toggle-switch {
@@ -305,6 +344,7 @@
             
         }
 
+        /* This ID is now in the mini-panel, but style is fine */
         #sim-time-display {
             font-size: 1.1em;
             color: #BE9905;
@@ -347,71 +387,67 @@
         <div id="info">
             <h1>Satellite Locator</h1>
             
-            <div class="tabs">
-                <button class="tab-button active" onclick="openTab(event, 'sat')">Satellite</button>
-                <button class="tab-button" onclick="openTab(event, 'sim')">Sim</button>
+            <h2 class="sat-color">SATELLITE TLE</h2>
+            <div class="control-group">
+                <label for="tle-1">TLE Line 1</label>
+                <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
+            </div>
+            <div class="control-group">
+                <label for="tle-2">TLE Line 2</label>
+                <textarea id="tle-2" class="tle-input" rows="1">2 49811  98.2045 352.8126 0001334  89.5317 270.6015 14.57143468222379</textarea>
+            </div>
+            <div id="tle_warning" class="warning"></div>
+
+            <h2 class="sat-color">SATELLITE CONTROLS</h2>
+            <div class="toggle-switch">
+                <label>Show Ground Track</label>
+                <label class="switch">
+                    <input type="checkbox" id="track" checked>
+                    <span class="slider"></span>
+                </label>
             </div>
 
-            <div id="sat" class="tab-content active">
-                <h2 class="sat-color">SATELLITE TLE</h2>
-                <div class="control-group">
-                    <label for="tle-1">TLE Line 1</label>
-                    <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
-                </div>
-                <div class="control-group">
-                    <label for="tle-2">TLE Line 2</label>
-                    <textarea id="tle-2" class="tle-input" rows="1">2 49811  98.2045 352.8126 0001334  89.5317 270.6015 14.57143468222379</textarea>
-                </div>
-                <div id="tle_warning" class="warning"></div>
-
-                <h2 class="sat-color">SATELLITE CONTROLS</h2>
-                <div class="toggle-switch">
-                    <label>Show Ground Track</label>
-                    <label class="switch">
-                        <input type="checkbox" id="track" checked>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <h2 class="sat-color">SATELLITE STATE</h2>
-                <div class="display-group">
-                    <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">N/A</span></div>
-                    <div class="display-item"><span class="display-label">Period</span><span class="display-value" id="period_val">N/A</span></div>
-                    <div class="display-item"><span class="display-label">Perigee</span><span class="display-value" id="perigee_val">N/A</span></div>
-                    <div class="display-item"><span class="display-label">Apogee</span><span class="display-value" id="apogee_val">N/A</span></div>
-                    <div class="display-item"><span class="display-label">Inclination</span><span class="display-value" id="inc_val">N/A</span></div>
-                </div>
+            <h2 class="sat-color">SATELLITE STATE</h2>
+            <div class="display-group">
+                <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">N/A</span></div>
+                <div class="display-item"><span class="display-label">Period</span><span class="display-value" id="period_val">N/A</span></div>
+                <div class="display-item"><span class="display-label">Perigee</span><span class="display-value" id="perigee_val">N/A</span></div>
+                <div class="display-item"><span class="display-label">Apogee</span><span class="display-value" id="apogee_val">N/A</span></div>
+                <div class="display-item"><span class="display-label">Inclination</span><span class="display-value" id="inc_val">N/A</span></div>
             </div>
             
-            <div id="sim" class="tab-content">
-                <h2>SIMULATION CONTROLS</h2>
-                <div class="control-group">
-                    <label for="epoch">Epoch (UTC)</label>
-                    <input type="datetime-local" id="epoch">
-                </div>
-                <div class="control-group">
-                    <label for="speed">Simulation Speed <span class="value" id="speed_val">x500</span></label>
-                    <input type="range" id="speed" min="1" max="5000" step="1" value="500">
-                </div>
-                <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
-                
-                <div class="button-group" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
-                    <div style="display: flex; gap: 5px;">
-                        <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load ISS TLE</button>
-                        <button id="fetch-ukube-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load UKube-1</button>
-                    </div>
-                    <div style="display: flex; gap: 5px;">
-                        <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load Tiangong</button>
-                        <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load MTG-I1</button>
-                    </div>
-                </div>
-                
-                <h2>SIMULATION STATE</h2>
-                <div id="sim-time-display"></div>
+            <h2>SIMULATION CONTROLS</h2>
+            <div class="control-group">
+                <label for="epoch">Epoch (UTC)</label>
+                <input type="datetime-local" id="epoch">
             </div>
-
+            
+            <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
+            
+            <div class="button-group" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+                <div style="display: flex; gap: 5px;">
+                    <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load ISS TLE</button>
+                    <button id="fetch-ukube-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load UKube-1</button>
+                </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load Tiangong</button>
+                    <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load MTG-I1</button>
+                </div>
+            </div>
+                
         </div>
         <button id="toggle-button" title="Toggle Controls">◀</button>
+
+        <div id="mini-panel">
+            <div class="mini-panel-group">
+                <label>TIME (UTC)</label>
+                <div id="sim-time-display"></div> 
+            </div>
+            <div class="mini-panel-group">
+                 <label for="speed">Speed&nbsp <span class="value" style="color: #BE9905" id="speed_val">x500</span></label>
+                <input type="range" id="speed" min="1" max="5000" step="1" value="500">
+            </div>
+        </div>
     </div>
     
     <div id="map-container">
@@ -452,9 +488,9 @@
             mapContainer: document.getElementById('map-container'),
             mapSvg: document.getElementById('map-svg'),
             epochInput: document.getElementById('epoch'),
-            speedSlider: document.getElementById('speed'),
-            speedValue: document.getElementById('speed_val'),
-            simTimeDisplay: document.getElementById('sim-time-display'),
+            speedSlider: document.getElementById('speed'), // ID is unchanged, just moved
+            speedValue: document.getElementById('speed_val'), // ID is unchanged, just moved
+            simTimeDisplay: document.getElementById('sim-time-display'), // ID is unchanged, just moved
             resetSimBtn: document.getElementById('reset-sim-btn'),
             fetchIssBtn: document.getElementById('fetch-iss-btn'),
             fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
@@ -572,6 +608,7 @@
             dom.toggleButton.addEventListener('click', () => {
                 dom.infoDiv.classList.toggle('collapsed');
                 dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
+                // No JS needed for mini-panel, CSS handles it
             });
 
             // Set initial epoch
@@ -582,7 +619,7 @@
             dom.epochInput.value = now.toISOString().slice(0, 16);
             dom.epochInput.addEventListener('change', resetSimulation);
             
-            // Simulation speed
+            // Simulation speed (listener is still valid)
             dom.speedSlider.addEventListener('input', () => {
                 dom.speedValue.textContent = `x${dom.speedSlider.value}`;
             });
@@ -666,21 +703,7 @@
             }
         }
 
-
-        function openTab(evt, tabName) {
-            let i, tabcontent, tabbuttons;
-            tabcontent = document.getElementsByClassName("tab-content");
-            for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
-            }
-            tabbuttons = document.getElementsByClassName("tab-button");
-            for (i = 0; i < tabbuttons.length; i++) {
-                tabbuttons[i].className = tabbuttons[i].className.replace(" active", "");
-            }
-            document.getElementById(tabName).style.display = "block";
-            evt.currentTarget.className += " active";
-        }
-
+        // REMOVED openTab function
 
         // --- Map Initialization (MODIFIED) ---
         function initMap() {
@@ -787,7 +810,8 @@
             
             elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
             
-            dom.simTimeDisplay.textContent = currentSimDate.toUTCString().replace("GMT", "UTC");
+            // This DOM element is now in the mini-panel, but the update logic is the same
+            dom.simTimeDisplay.textContent = currentSimDate.toUTCString().replace("GMT", "");
             
             // --- UPDATED: Calculate Sun and Satellite Positions ---
             const currentGST = satellite.gstime(currentSimDate);
