@@ -355,6 +355,17 @@
             margin-bottom: 15px;
         }
         
+        /* NEW: Style for duplicated time display in main panel */
+        #sim-time-display-main {
+            font-size: 1.1em;
+            color: #BE9905;
+            text-align: center;
+            padding: 10px;
+            background: #222;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
         .sat-color { color: #ed1248; }
 
         /* Button Style */
@@ -406,7 +417,15 @@
                     <span class="slider"></span>
                 </label>
             </div>
-
+            
+            <div class="control-group">
+                <label>TIME (UTC)</label>
+                <div id="sim-time-display-main"></div>
+            </div>
+            <div class="control-group">
+                <label for="speed-main">Speed <span class="value" id="speed_val_main">x500</span></label>
+                <input type="range" id="speed-main" min="1" max="5000" step="1" value="500">
+            </div>
             <h2 class="sat-color">SATELLITE STATE</h2>
             <div class="display-group">
                 <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">N/A</span></div>
@@ -488,9 +507,12 @@
             mapContainer: document.getElementById('map-container'),
             mapSvg: document.getElementById('map-svg'),
             epochInput: document.getElementById('epoch'),
-            speedSlider: document.getElementById('speed'), // ID is unchanged, just moved
-            speedValue: document.getElementById('speed_val'), // ID is unchanged, just moved
-            simTimeDisplay: document.getElementById('sim-time-display'), // ID is unchanged, just moved
+            speedSlider: document.getElementById('speed'), // Mini-panel slider
+            speedValue: document.getElementById('speed_val'), // Mini-panel value
+            simTimeDisplay: document.getElementById('sim-time-display'), // Mini-panel time
+            speedSliderMain: document.getElementById('speed-main'),           // NEW: Main-panel slider
+            speedValueMain: document.getElementById('speed_val_main'),       // NEW: Main-panel value
+            simTimeDisplayMain: document.getElementById('sim-time-display-main'), // NEW: Main-panel time
             resetSimBtn: document.getElementById('reset-sim-btn'),
             fetchIssBtn: document.getElementById('fetch-iss-btn'),
             fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
@@ -585,6 +607,8 @@
                 dom.epochInput.value = epochDateTLE.toISOString().slice(0, 16);
                 dom.speedSlider.value = 1;
                 dom.speedValue.textContent = 'x1';
+                dom.speedSliderMain.value = 1;      // SYNC
+                dom.speedValueMain.textContent = 'x1'; // SYNC
 
                 // 2. Set Satellite Parameters
                 dom.sat.tle1.value = line1;
@@ -619,11 +643,31 @@
             dom.epochInput.value = now.toISOString().slice(0, 16);
             dom.epochInput.addEventListener('change', resetSimulation);
             
-            // Simulation speed (listener is still valid)
+            // --- UPDATED: Sync Speed Sliders ---
+            function syncSpeed(sourceSlider, sourceValue, targetSlider, targetValue) {
+                const value = sourceSlider.value;
+                targetSlider.value = value;
+                const text = `x${value}`;
+                sourceValue.textContent = text;
+                targetValue.textContent = text;
+            }
+
+            // Original mini-panel slider
             dom.speedSlider.addEventListener('input', () => {
-                dom.speedValue.textContent = `x${dom.speedSlider.value}`;
+                syncSpeed(dom.speedSlider, dom.speedValue, dom.speedSliderMain, dom.speedValueMain);
             });
-            dom.speedValue.textContent = `x${dom.speedSlider.value}`; // Set initial
+            
+            // New main-panel slider
+            dom.speedSliderMain.addEventListener('input', () => {
+                syncSpeed(dom.speedSliderMain, dom.speedValueMain, dom.speedSlider, dom.speedValue);
+            });
+
+            // Set initial values for both
+            const initialSpeed = dom.speedSlider.value;
+            dom.speedSliderMain.value = initialSpeed;
+            dom.speedValue.textContent = `x${initialSpeed}`;
+            dom.speedValueMain.textContent = `x${initialSpeed}`;
+            // --- END UPDATED SPEED SLIDERS ---
 
             // Reset button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
@@ -801,7 +845,7 @@
             const deltaRealTime = (timestamp - lastTimestamp) / 1000.0;
             lastTimestamp = timestamp;
 
-            const speed = parseFloat(dom.speedSlider.value);
+            const speed = parseFloat(dom.speedSlider.value); // Read from one, both are in sync
             const deltaSimTime = deltaRealTime * speed;
             
             if (speed > 0) {
@@ -810,8 +854,11 @@
             
             elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
             
-            // This DOM element is now in the mini-panel, but the update logic is the same
-            dom.simTimeDisplay.textContent = currentSimDate.toUTCString().replace("GMT", "");
+            // --- UPDATED: Update both time displays ---
+            const timeString = currentSimDate.toUTCString().replace("GMT", "");
+            dom.simTimeDisplay.textContent = timeString;
+            dom.simTimeDisplayMain.textContent = timeString;
+            // --- END UPDATE ---
             
             // --- UPDATED: Calculate Sun and Satellite Positions ---
             const currentGST = satellite.gstime(currentSimDate);
