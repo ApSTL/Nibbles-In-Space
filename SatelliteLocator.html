@@ -419,6 +419,10 @@
             </div>
             
             <div class="control-group">
+                <label for="track-length">Track Length <span class="value" id="track_length_val">1 day</span></label>
+                <input type="range" id="track-length" min="1" max="50" step="1" value="1">
+            </div>
+            <div class="control-group">
                 <label>TIME (UTC)</label>
                 <div id="sim-time-display-main"></div>
             </div>
@@ -433,7 +437,8 @@
                 <div class="display-item"><span class="display-label">Perigee</span><span class="display-value" id="perigee_val">N/A</span></div>
                 <div class="display-item"><span class="display-label">Apogee</span><span class="display-value" id="apogee_val">N/A</span></div>
                 <div class="display-item"><span class="display-label">Inclination</span><span class="display-value" id="inc_val">N/A</span></div>
-            </div>
+                <div class="display-item"><span class="display-label">Eccentricity</span><span class="display-value" id="ecc_val">N/A</span></div>
+                </div>
             
             <h2>SATELLITE CONTROLS</h2>
             <div class="control-group">
@@ -524,6 +529,8 @@
             fetchMtgi1Btn: document.getElementById('fetch-mtgi1-btn'),
             fetchQzs1rBtn: document.getElementById('fetch-qzs1r-btn'),
             fetchArktikam2Btn: document.getElementById('fetch-arktikam2-btn'),
+            trackLengthSlider: document.getElementById('track-length'), // NEW
+            trackLengthValue: document.getElementById('track_length_val'), // NEW
             sat: {
                 tle1: document.getElementById(`tle-1`),
                 tle2: document.getElementById(`tle-2`),
@@ -534,7 +541,8 @@
                     period: document.getElementById(`period_val`),
                     perigee: document.getElementById(`perigee_val`),
                     apogee: document.getElementById(`apogee_val`),
-                    inc: document.getElementById(`inc_val`)
+                    inc: document.getElementById(`inc_val`),
+                    ecc: document.getElementById(`ecc_val`) // NEW
                 }
             }
         };
@@ -683,6 +691,16 @@
             dom.speedValueMain.textContent = `x${initialSpeed}`;
             // --- END UPDATED SPEED SLIDERS ---
 
+            // --- NEW: Track Length Slider ---
+            function updateTrackLengthDisplay() {
+                const days = dom.trackLengthSlider.value;
+                dom.trackLengthValue.textContent = `${days} day${days == 1 ? '' : 's'}`; // Handle plural
+            }
+            
+            dom.trackLengthSlider.addEventListener('input', updateTrackLengthDisplay);
+            updateTrackLengthDisplay(); // Set initial value on load
+            // --- END NEW ---
+
             // Reset button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
             
@@ -750,6 +768,7 @@
                 sat.val.apogee.textContent = `${apogeeAltitude.toFixed(0)} km`;
                 
                 sat.val.inc.textContent = `${(satrec.inclo * RAD_TO_DEG).toFixed(2)}°`;
+                sat.val.ecc.textContent = `${satrec.ecco.toFixed(5)}`; // NEW
 
             } catch(err) {
                 satelliteConfigs[index].satrec = null;
@@ -760,6 +779,7 @@
                 sat.val.perigee.textContent = 'N/A';
                 sat.val.apogee.textContent = 'N/A';
                 sat.val.inc.textContent = 'N/A';
+                sat.val.ecc.textContent = 'N/A'; // NEW
             }
         }
 
@@ -918,8 +938,14 @@
                     .style("display", "block");
                     
                 if (dom.sat.track.checked && state.period) {
-                    const twoOrbitsAgo = elapsedSimSeconds - 2 * state.period;
-                    groundTracks[i] = groundTracks[i].filter(point => point[2] >= twoOrbitsAgo);
+                    // UPDATED: Filter track based on slider value (in days)
+                    const trackDays = parseFloat(dom.trackLengthSlider.value);
+                    const trackSeconds = trackDays * 24 * 60 * 60; // Convert days to seconds
+                    const trackCutoffTime = elapsedSimSeconds - trackSeconds;
+                    
+                    groundTracks[i] = groundTracks[i].filter(point => point[2] >= trackCutoffTime);
+                    // END UPDATE
+                    
                     groundTracks[i].push([lon, lat, elapsedSimSeconds]);
                     
                     const lineCoords = groundTracks[i].map(p => [p[0], p[1]]);
