@@ -452,6 +452,10 @@
                     <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load Tiangong</button>
                     <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load MTG-I1</button>
                 </div>
+                <div style="display: flex; gap: 5px;">
+                    <button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load QZS-1R</button>
+                    <button id="fetch-arktikam2-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load Arktika-M 2</button>
+                </div>
             </div>
                 
         </div>
@@ -518,6 +522,8 @@
             fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
             fetchTiangongBtn: document.getElementById('fetch-tiangong-btn'),
             fetchMtgi1Btn: document.getElementById('fetch-mtgi1-btn'),
+            fetchQzs1rBtn: document.getElementById('fetch-qzs1r-btn'),
+            fetchArktikam2Btn: document.getElementById('fetch-arktikam2-btn'),
             sat: {
                 tle1: document.getElementById(`tle-1`),
                 tle2: document.getElementById(`tle-2`),
@@ -552,6 +558,8 @@
             dom.fetchUkubeBtn.disabled = true;
             dom.fetchTiangongBtn.disabled = true;
             dom.fetchMtgi1Btn.disabled = true;
+            dom.fetchQzs1rBtn.disabled = true;
+            dom.fetchArktikam2Btn.disabled = true;
 
             button.textContent = "Loading...";
             
@@ -577,11 +585,15 @@
                 dom.fetchUkubeBtn.textContent = "Load UKube-1";
                 dom.fetchTiangongBtn.textContent = "Load Tiangong";
                 dom.fetchMtgi1Btn.textContent = "Load MTG-I1";
+                dom.fetchQzs1rBtn.textContent = "Load QZS-1R";
+                dom.fetchArktikam2Btn.textContent = "Load Arktika-M 2";
                 
                 dom.fetchIssBtn.disabled = false;
                 dom.fetchUkubeBtn.disabled = false;
                 dom.fetchTiangongBtn.disabled = false;
                 dom.fetchMtgi1Btn.disabled = false;
+                dom.fetchQzs1rBtn.disabled = false;
+                dom.fetchArktikam2Btn.disabled = false;
             }
         }
         
@@ -590,6 +602,8 @@
         function loadUkubeTle() { loadTle("40074", "fetch-ukube-btn", "Load UKube-1"); }
         function loadTiangongTle() { loadTle("48274", "fetch-tiangong-btn", "Load Tiangong"); }
         function loadMtgi1Tle() { loadTle("54743", "fetch-mtgi1-btn", "Load MTG-I1"); }
+        function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "Load QZS-1R"); }
+        function loadArktikam2Tle() { loadTle("58584", "fetch-arktikam2-btn", "Load Arktika-M 2"); }
 
         function parseAndApplyTle(line1, line2) {
             try {
@@ -677,6 +691,8 @@
             dom.fetchUkubeBtn.addEventListener('click', loadUkubeTle);
             dom.fetchTiangongBtn.addEventListener('click', loadTiangongTle); 
             dom.fetchMtgi1Btn.addEventListener('click', loadMtgi1Tle); 
+            dom.fetchQzs1rBtn.addEventListener('click', loadQzs1rTle);
+            dom.fetchArktikam2Btn.addEventListener('click', loadArktikam2Tle);
 
             // Satellite control listeners
             dom.sat.tle1.addEventListener('input', () => parseTleAndUpdateUI(0));
