@@ -210,6 +210,14 @@
             border-radius: 50%; 
             border: 2px solid #000;
         }
+        input[type="range"]:disabled::-webkit-slider-thumb {
+            background: #555;
+            cursor: not-allowed;
+        }
+        input[type="range"]:disabled::-moz-range-thumb {
+            background: #555;
+            cursor: not-allowed;
+        }
         .value { float: right; font-weight: normal; color: #ccc; }
         .display-item { 
             display: flex; 
@@ -446,8 +454,10 @@
                 <input type="datetime-local" id="epoch">
             </div>
             
-            <button id="reset-sim-btn" class="sim-button">Reset to Epoch</button>
-            
+            <div style="display: flex; gap: 5px; margin-top: 10px;">
+                <button id="reset-sim-btn" class="sim-button" style="margin-top: 0; flex: 1;">Reset to Epoch</button>
+                <button id="catch-up-btn" class="sim-button" style="margin-top: 0; flex: 1;">Catch up</button>
+            </div>
             <div class="button-group" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
                 <div style="display: flex; gap: 5px;">
                     <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load ISS TLE</button>
@@ -496,6 +506,7 @@
         let epochDate = new Date();
         let currentSimDate = new Date();
         let elapsedSimSeconds = 0;
+        let isCatchingUp = false; // NEW: State for catch-up mode
         
         let satelliteConfigs = [ { satrec: null } ];
         let propagatedStates = [ {} ]; 
@@ -523,6 +534,7 @@
             speedValueMain: document.getElementById('speed_val_main'),       // NEW: Main-panel value
             simTimeDisplayMain: document.getElementById('sim-time-display-main'), // NEW: Main-panel time
             resetSimBtn: document.getElementById('reset-sim-btn'),
+            catchUpBtn: document.getElementById('catch-up-btn'), // NEW
             fetchIssBtn: document.getElementById('fetch-iss-btn'),
             fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
             fetchTiangongBtn: document.getElementById('fetch-tiangong-btn'),
@@ -704,6 +716,9 @@
             // Reset button
             dom.resetSimBtn.addEventListener('click', resetSimulation);
             
+            // NEW: Catch up button
+            dom.catchUpBtn.addEventListener('click', startCatchUp);
+
             // TLE Fetch buttons
             dom.fetchIssBtn.addEventListener('click', loadIssTle);
             dom.fetchUkubeBtn.addEventListener('click', loadUkubeTle);
@@ -725,6 +740,27 @@
             });
         }
         
+        // NEW: Catch Up Function
+        function startCatchUp() {
+            // Check if sim time is in the past
+            if (currentSimDate.getTime() < new Date().getTime()) {
+                isCatchingUp = true;
+                
+                // Set speed to max
+                const newSpeed = 5000;
+                dom.speedSlider.value = newSpeed;
+                dom.speedSliderMain.value = newSpeed;
+                const text = `x${newSpeed}`;
+                dom.speedValue.textContent = text;
+                dom.speedValueMain.textContent = text;
+
+                // Disable controls to prevent interference
+                dom.catchUpBtn.disabled = true;
+                dom.speedSlider.disabled = true;
+                dom.speedSliderMain.disabled = true;
+            }
+        }
+
         function parseTleAndUpdateUI(index) {
             const sat = dom.sat;
             const tle1 = sat.tle1.value;
@@ -865,6 +901,12 @@
                .attr("d", path);
             
             lastTimestamp = 0;
+            
+            // NEW: Cancel catch-up mode if active
+            isCatchingUp = false;
+            dom.catchUpBtn.disabled = false;
+            dom.speedSlider.disabled = false;
+            dom.speedSliderMain.disabled = false;
         }
 
         function simulationLoop(timestamp) {
@@ -909,6 +951,28 @@
 
             // Draw all dynamic map elements
             drawMapElements();
+
+            // --- NEW: Check for Catch-up Mode ---
+            if (isCatchingUp) {
+                const now_ms = new Date().getTime(); // Get current real time
+                if (currentSimDate.getTime() >= now_ms) {
+                    // We've caught up!
+                    isCatchingUp = false;
+                    
+                    // Set speed to 1 (real-time)
+                    const newSpeed = 1;
+                    dom.speedSlider.value = newSpeed;
+                    dom.speedSliderMain.value = newSpeed;
+                    const text = `x${newSpeed}`;
+                    dom.speedValue.textContent = text;
+                    dom.speedValueMain.textContent = text;
+
+                    // Re-enable controls
+                    dom.catchUpBtn.disabled = false;
+                    dom.speedSlider.disabled = false;
+                    dom.speedSliderMain.disabled = false;
+                }
+            }
             
             requestAnimationFrame(simulationLoop);
         }
@@ -1077,7 +1141,7 @@
          * Calculates the sun's sub-solar point (latitude, longitude)
          * @param {Date} date - The current simulation date object
          * @param {number} gmst_rad - The current GMST in radians
-         * @returns {object} {latitude, longitude} in degrees
+         *@returns {object} {latitude, longitude} in degrees
          */
         function getSunPosition(date, gmst_rad) {
             const julianDate = (date.getTime() / 86400000) + 2440587.5;
