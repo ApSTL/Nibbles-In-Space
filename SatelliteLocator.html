@@ -738,19 +738,10 @@
                 sat.warning.className = 'warning'; 
                 sat.warning.textContent = '';
                 
-                // --- Robust Apogee/Perigee Calculation ---
-                const meanMotionRadPerSec = satrec.no / 60.0; // satrec.no is in rad/min
-
-                // Semi-major Axis (a) in km, from Kepler's Third Law (a = (GM / n^2)^(1/3))
-                const semiMajorAxis = Math.cbrt(GM_KM3_S2 / (meanMotionRadPerSec * meanMotionRadPerSec)); 
-
-                // Perigee and Apogee Radii in km
-                const perigeeRadius = semiMajorAxis * (1.0 - satrec.ecco);
-                const apogeeRadius = semiMajorAxis * (1.0 + satrec.ecco);
-
-                // Altitudes in km (Radius - Earth's Equatorial Radius)
-                const perigeeAltitude = perigeeRadius - EARTH_RADIUS_KM;
-                const apogeeAltitude = apogeeRadius - EARTH_RADIUS_KM;
+                // --- NEW: Osculating Apogee/Perigee Calculation ---
+                // This replaces the old mean calculation block
+                const { perigeeAltitude, apogeeAltitude } = getOsculatingApogeePerigee(satrec);
+                // --- End New Calculation ---
                 
                 const perigee_alt_km = perigeeAltitude; // Used for warning check
                 
@@ -979,6 +970,75 @@
 
 
         // --- Orbital Mechanics ---
+
+        /**
+         * Calculates the osculating (instantaneous) apogee and perigee by
+         * simulating one full orbit from the TLE epoch.
+         * @param {object} satrec - The satellite record object from satellite.js
+         * @returns {object} { perigeeAltitude: number, apogeeAltitude: number }
+         */
+        function getOsculatingApogeePerigee(satrec) {
+            if (!satrec) {
+                return { perigeeAltitude: 0, apogeeAltitude: 0 };
+            }
+
+            try {
+                // 1. Get orbital period in minutes
+                const periodMin = (2 * Math.PI / satrec.no);
+                
+                // 2. Get TLE epoch as a Date object
+                const year = satrec.epochyr < 57 ? satrec.epochyr + 2000 : satrec.epochyr + 1900;
+                const day = satrec.epochdays;
+                const epochDate = new Date(Date.UTC(year, 0, 1));
+                // Adjust for the fractional day
+                epochDate.setMilliseconds(epochDate.getMilliseconds() + (day - 1) * 86400 * 1000);
+
+                // 3. Simulation parameters
+                const numSteps = 360;
+                const stepMin = periodMin / numSteps;
+                const stepMs = stepMin * 60 * 1000; // Step time in milliseconds
+
+                let minAlt_km = Infinity;
+                let maxAlt_km = -Infinity;
+
+                // 4. Simulate one orbit
+                for (let i = 0; i <= numSteps; i++) {
+                    const currentDate = new Date(epochDate.getTime() + i * stepMs);
+
+                    // Propagate satellite to the current time
+                    const propResult = satellite.propagate(satrec, currentDate);
+                    if (!propResult || !propResult.position) {
+                        continue; // Skip if propagation fails
+                    }
+                    
+                    const eciPos = propResult.position;
+                    
+                    // Get GMST for this time
+                    const gmst = satellite.gstime(currentDate);
+                    
+                    // Convert ECI to Geodetic (lat, lon, height)
+                    const geodetic = satellite.eciToGeodetic(eciPos, gmst);
+                    
+                    const alt_km = geodetic.height;
+                    
+                    // 5. Find min and max altitude
+                    if (alt_km < minAlt_km) minAlt_km = alt_km;
+                    if (alt_km > maxAlt_km) maxAlt_km = alt_km;
+                }
+
+                return { perigeeAltitude: minAlt_km, apogeeAltitude: maxAlt_km };
+
+            } catch (err) {
+                console.error("Error calculating osculating orbit:", err);
+                // Fallback to mean calculation if simulation fails
+                const meanMotionRadPerSec = satrec.no / 60.0;
+                const semiMajorAxis = Math.cbrt(GM_KM3_S2 / (meanMotionRadPerSec * meanMotionRadPerSec)); 
+                const perigeeAltitude = (semiMajorAxis * (1.0 - satrec.ecco)) - EARTH_RADIUS_KM;
+                const apogeeAltitude = (semiMajorAxis * (1.0 + satrec.ecco)) - EARTH_RADIUS_KM;
+                return { perigeeAltitude, apogeeAltitude };
+            }
+        }
+        
         function propagateSatellite(satrec, currentDate, gst) {
             if (!satrec) {
                 return {}; 
