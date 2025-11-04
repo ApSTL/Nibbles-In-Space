@@ -275,7 +275,7 @@
         .satellite { fill: #00ffff; stroke: #fff; stroke-width: 1.5px; }
         .ground-track { fill: none; stroke: #ed1248; stroke-width: 1.5px; opacity: 0.7; }
 
-        /* NEW: Sun and Shadow Styles */
+        /* Sun and Shadow Styles */
         .sun-marker {
             fill: #ffcc00;
             stroke: #fff;
@@ -288,7 +288,16 @@
             opacity: 0.2; 
         }
 
-        /* REMOVED Tab Styles */
+        /* NEW: Moon Styles */
+        .moon-dark-side {
+            fill: #333;
+            stroke: #555;
+            stroke-width: 1px;
+        }
+        .moon-lit-side {
+            fill: #ddd;
+            stroke: none;
+        }
 
         /* Toggle Switch Styles */
         .toggle-switch {
@@ -499,6 +508,10 @@
         const GM_KM3_S2 = 398600.4418; // Earth's gravitational parameter (km^3/s^2)
         const DEG_TO_RAD = Math.PI / 180;
         const RAD_TO_DEG = 180 / Math.PI;
+        // NEW: Moon constants
+        const KNOWN_NEW_MOON_MS = new Date(Date.UTC(2000, 0, 6, 18, 14)).getTime();
+        const SYNODIC_PERIOD_DAYS = 29.530588853;
+
 
         // --- Global State ---
         let svg, projection, path, graticule;
@@ -506,14 +519,15 @@
         let epochDate = new Date();
         let currentSimDate = new Date();
         let elapsedSimSeconds = 0;
-        let isCatchingUp = false; // NEW: State for catch-up mode
+        let isCatchingUp = false; // State for catch-up mode
         
         let satelliteConfigs = [ { satrec: null } ];
         let propagatedStates = [ {} ]; 
         let groundTracks = [ [] ];
         
-        // NEW: Sun position and shadow circles
         let sunPos = { latitude: 0, longitude: 0 };
+        let moonData = { latitude: 0, longitude: 0, phase: 0 }; // NEW
+        
         // Circles are centered on the antipode (opposite of sun)
         let civilCircle = d3.geoCircle().radius(90);       // Sun at 0 deg (terminator)
         let nauticalCircle = d3.geoCircle().radius(84);     // Sun at -6 deg
@@ -530,19 +544,19 @@
             speedSlider: document.getElementById('speed'), // Mini-panel slider
             speedValue: document.getElementById('speed_val'), // Mini-panel value
             simTimeDisplay: document.getElementById('sim-time-display'), // Mini-panel time
-            speedSliderMain: document.getElementById('speed-main'),           // NEW: Main-panel slider
-            speedValueMain: document.getElementById('speed_val_main'),       // NEW: Main-panel value
-            simTimeDisplayMain: document.getElementById('sim-time-display-main'), // NEW: Main-panel time
+            speedSliderMain: document.getElementById('speed-main'),           // Main-panel slider
+            speedValueMain: document.getElementById('speed_val_main'),       // Main-panel value
+            simTimeDisplayMain: document.getElementById('sim-time-display-main'), // Main-panel time
             resetSimBtn: document.getElementById('reset-sim-btn'),
-            catchUpBtn: document.getElementById('catch-up-btn'), // NEW
+            catchUpBtn: document.getElementById('catch-up-btn'), 
             fetchIssBtn: document.getElementById('fetch-iss-btn'),
             fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
             fetchTiangongBtn: document.getElementById('fetch-tiangong-btn'),
             fetchMtgi1Btn: document.getElementById('fetch-mtgi1-btn'),
             fetchQzs1rBtn: document.getElementById('fetch-qzs1r-btn'),
             fetchArktikam2Btn: document.getElementById('fetch-arktikam2-btn'),
-            trackLengthSlider: document.getElementById('track-length'), // NEW
-            trackLengthValue: document.getElementById('track_length_val'), // NEW
+            trackLengthSlider: document.getElementById('track-length'), 
+            trackLengthValue: document.getElementById('track_length_val'), 
             sat: {
                 tle1: document.getElementById(`tle-1`),
                 tle2: document.getElementById(`tle-2`),
@@ -554,7 +568,7 @@
                     perigee: document.getElementById(`perigee_val`),
                     apogee: document.getElementById(`apogee_val`),
                     inc: document.getElementById(`inc_val`),
-                    ecc: document.getElementById(`ecc_val`) // NEW
+                    ecc: document.getElementById(`ecc_val`)
                 }
             }
         };
@@ -810,9 +824,7 @@
             }
         }
 
-        // REMOVED openTab function
-
-        // --- Map Initialization (MODIFIED) ---
+        // --- Map Initialization ---
         function initMap() {
             svg = d3.select("#map-svg");
 
@@ -822,8 +834,9 @@
             // Create layers (Order matters!)
             svg.append("g").attr("id", "graticule-layer");
             svg.append("g").attr("id", "coastline-layer"); 
-            svg.append("g").attr("id", "shadow-layer");    // NEW: For twilight/night
-            svg.append("g").attr("id", "sun-layer");       // NEW: For sun marker
+            svg.append("g").attr("id", "shadow-layer");    
+            svg.append("g").attr("id", "sun-layer");       
+            svg.append("g").attr("id", "moon-layer"); // NEW: Moon layer
             svg.append("g").attr("id", "track-layer");
             svg.append("g").attr("id", "satellite-layer");
 
@@ -843,17 +856,33 @@
                 onWindowResize(); // Fit map to screen
             });
 
-            // NEW: Add shadow paths (drawn in drawMapElements)
+            // Add shadow paths
             svg.select("#shadow-layer").append("path").attr("id", "civil-twilight-zone").attr("class", "shadow-zone");
             svg.select("#shadow-layer").append("path").attr("id", "nautical-twilight-zone").attr("class", "shadow-zone");
             svg.select("#shadow-layer").append("path").attr("id", "astronomical-twilight-zone").attr("class", "shadow-zone");
             svg.select("#shadow-layer").append("path").attr("id", "night-zone").attr("class", "shadow-zone");
 
-            // NEW: Add Sun marker (drawn in drawMapElements)
+            // Add Sun marker
             svg.select("#sun-layer").append("circle")
                 .attr("id", "sun-marker")
                 .attr("r", 7)
                 .attr("class", "sun-marker");
+
+            // NEW: Add Moon marker group
+            const moonMarker = svg.select("#moon-layer").append("g")
+                .attr("id", "moon-marker")
+                .style("display", "none");
+            
+            // Add Moon's dark base
+            moonMarker.append("circle")
+                .attr("r", 6)
+                .attr("class", "moon-dark-side");
+            
+            // Add Moon's lit path (to be drawn later)
+            moonMarker.append("path")
+                .attr("id", "moon-lit-side")
+                .attr("class", "moon-lit-side");
+            // --- END NEW ---
 
             // Add ground track path
             svg.select("#track-layer").append("path").attr("id", "track-0").attr("class", "ground-track");
@@ -923,17 +952,16 @@
             
             elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
             
-            // --- UPDATED: Update both time displays ---
+            // Update both time displays
             const timeString = currentSimDate.toUTCString().replace("GMT", "");
             dom.simTimeDisplay.textContent = timeString;
             dom.simTimeDisplayMain.textContent = timeString;
-            // --- END UPDATE ---
             
-            // --- UPDATED: Calculate Sun and Satellite Positions ---
+            // Calculate Sun and Satellite Positions
             const currentGST = satellite.gstime(currentSimDate);
             
-            // NEW: Calculate Sun position
             sunPos = getSunPosition(currentSimDate, currentGST);
+            moonData = getMoonData(currentSimDate, currentGST); // NEW
 
             // Calculate Satellite position
             const sat = dom.sat;
@@ -952,7 +980,7 @@
             // Draw all dynamic map elements
             drawMapElements();
 
-            // --- NEW: Check for Catch-up Mode ---
+            // Check for Catch-up Mode
             if (isCatchingUp) {
                 const now_ms = new Date().getTime(); // Get current real time
                 if (currentSimDate.getTime() >= now_ms) {
@@ -1012,24 +1040,63 @@
                 svg.select(`#sat-marker-${i}`).style("display", "none");
             }
 
-            // --- NEW: Draw Sun and Shadows ---
-            if (!sunPos) return; 
-
-            // Draw Sun Marker
-            const sunCoords = projection([sunPos.longitude, sunPos.latitude]);
-            svg.select("#sun-marker")
-                .attr("cx", sunCoords[0])
-                .attr("cy", sunCoords[1])
-                .style("display", "block");
+            // --- Draw Sun and Shadows ---
+            if (sunPos && sunPos.latitude !== undefined) {
+                // Draw Sun Marker
+                const sunCoords = projection([sunPos.longitude, sunPos.latitude]);
+                svg.select("#sun-marker")
+                    .attr("cx", sunCoords[0])
+                    .attr("cy", sunCoords[1])
+                    .style("display", "block");
+                    
+                // Draw Shadows
+                const antipode = [sunPos.longitude + 180, -sunPos.latitude];
                 
-            // Draw Shadows
-            const antipode = [sunPos.longitude + 180, -sunPos.latitude];
-            
-            // Update centers and redraw paths
-            svg.select("#civil-twilight-zone").datum(civilCircle.center(antipode)).attr("d", path);
-            svg.select("#nautical-twilight-zone").datum(nauticalCircle.center(antipode)).attr("d", path);
-            svg.select("#astronomical-twilight-zone").datum(astronomicalCircle.center(antipode)).attr("d", path);
-            svg.select("#night-zone").datum(nightCircle.center(antipode)).attr("d", path);
+                // Update centers and redraw paths
+                svg.select("#civil-twilight-zone").datum(civilCircle.center(antipode)).attr("d", path);
+                svg.select("#nautical-twilight-zone").datum(nauticalCircle.center(antipode)).attr("d", path);
+                svg.select("#astronomical-twilight-zone").datum(astronomicalCircle.center(antipode)).attr("d", path);
+                svg.select("#night-zone").datum(nightCircle.center(antipode)).attr("d", path);
+            }
+
+            // --- NEW: Draw Moon ---
+            if (moonData && moonData.latitude !== undefined) {
+                const moonCoords = projection([moonData.longitude, moonData.latitude]);
+                const moonMarker = svg.select("#moon-marker");
+                
+                // Move the moon marker group
+                moonMarker
+                    .attr("transform", `translate(${moonCoords[0]}, ${moonCoords[1]})`)
+                    .style("display", "block");
+                
+                // Calculate and draw the phase path
+                const r = 6; // Moon radius
+                const phase = moonData.phase; // 0 to 1
+                const phaseAngle = phase * 2 * Math.PI;
+                
+                // x_bulge is the x-radius of the terminator ellipse
+                // -r (crescent) to +r (gibbous)
+                const x_bulge = -r * Math.cos(phaseAngle);
+                
+                let d; // This will hold the SVG path data
+                
+                if (phase <= 0.5) { 
+                    // WAXING (New -> First Q -> Full)
+                    // The right-side arc (0 0 1) is always lit
+                    // The terminator arc (0 0 sweep) goes from left to right
+                    const sweep = (x_bulge < 0) ? 0 : 1; 
+                    d = `M 0,-${r} A ${r},${r} 0 0 1 0,${r} A ${Math.abs(x_bulge)},${r} 0 0 ${sweep} 0,-${r} Z`;
+                } else { 
+                    // WANING (Full -> Third Q -> New)
+                    // The left-side arc (0 0 0) is always lit
+                    // The terminator arc (0 0 sweep) goes from right to left
+                    const sweep = (x_bulge > 0) ? 0 : 1;
+                    d = `M 0,-${r} A ${r},${r} 0 0 0 0,${r} A ${Math.abs(x_bulge)},${r} 0 0 ${sweep} 0,-${r} Z`;
+                }
+                
+                // Apply the calculated path to the lit side
+                moonMarker.select("#moon-lit-side").attr("d", d);
+            }
         }
 
 
@@ -1136,12 +1203,11 @@
             }
         }
         
-        // --- NEW: Sun Position Calculation ---
         /**
          * Calculates the sun's sub-solar point (latitude, longitude)
          * @param {Date} date - The current simulation date object
          * @param {number} gmst_rad - The current GMST in radians
-         *@returns {object} {latitude, longitude} in degrees
+         * @returns {object} {latitude, longitude} in degrees
          */
         function getSunPosition(date, gmst_rad) {
             const julianDate = (date.getTime() / 86400000) + 2440587.5;
@@ -1172,7 +1238,7 @@
             const lat_rad = declination_rad;
 
             // Sub-solar Longitude is (RA - GMST)
-            // We need to normalize the longitude to the [-pi, pi] range, which satellite.js's gmst_rad already helps with.
+            // We need to normalize the longitude to the [-pi, pi] range
             let lon_rad = rightAscension_rad - gmst_rad;
 
             if (lon_rad > Math.PI) lon_rad -= 2 * Math.PI;
@@ -1183,6 +1249,69 @@
                 longitude: lon_rad * RAD_TO_DEG
             };
         }
+
+        // --- NEW: Moon Position and Phase Calculation ---
+        /**
+         * Calculates the moon's phase and approximate sub-lunar point
+         * @param {Date} date - The current simulation date object
+         * @param {number} gmst_rad - The current GMST in radians
+         * @returns {object} {latitude, longitude, phase}
+         */
+        function getMoonData(date, gmst_rad) {
+            
+            // --- 1. Calculate Phase (0 to 1) ---
+            const current_ms = date.getTime();
+            const msSinceNewMoon = current_ms - KNOWN_NEW_MOON_MS;
+            const daysSinceNewMoon = msSinceNewMoon / (1000 * 60 * 60 * 24);
+            
+            let moonPhase = (daysSinceNewMoon / SYNODIC_PERIOD_DAYS) % 1;
+            if (moonPhase < 0) {
+                moonPhase += 1; // Handle dates before the known new moon
+            }
+            // phase: 0 = New, 0.25 = First Q, 0.5 = Full, 0.75 = Third Q
+
+            // --- 2. Calculate Approximate Position ---
+            // This is a low-fi model based on the Sun's position logic
+            
+            const julianDate = (date.getTime() / 86400000) + 2440587.5;
+            const daysSince2000 = julianDate - 2451545.0;
+
+            // Get Sun's ecliptic longitude (needed for moon's relative position)
+            const meanLongitude_deg = (280.460 + 0.9856474 * daysSince2000) % 360;
+            const meanAnomaly_deg = (357.528 + 0.9856003 * daysSince2000) % 360;
+            const meanAnomaly_rad = meanAnomaly_deg * DEG_TO_RAD;
+            const sunEclipticLongitude_deg = meanLongitude_deg + 1.915 * Math.sin(meanAnomaly_rad) + 0.020 * Math.sin(2 * meanAnomaly_rad);
+
+            // Calculate Moon's approximate ecliptic longitude
+            // Elongation (phase) is difference in longitude
+            const moonEclipticLongitude_deg = (sunEclipticLongitude_deg + (moonPhase * 360)) % 360;
+            const moonEclipticLongitude_rad = moonEclipticLongitude_deg * DEG_TO_RAD;
+
+            // Obliquity of the ecliptic (same as for sun)
+            const obliquity_deg = 23.439 - 0.0000004 * daysSince2000;
+            const obliquity_rad = obliquity_deg * DEG_TO_RAD;
+
+            // Convert Moon's ecliptic coords to equatorial (RA, Dec)
+            // (Assuming 0 ecliptic latitude for simplicity)
+            const rightAscension_rad = Math.atan2(Math.cos(obliquity_rad) * Math.sin(moonEclipticLongitude_rad), Math.cos(moonEclipticLongitude_rad));
+            const declination_rad = Math.asin(Math.sin(obliquity_rad) * Math.sin(moonEclipticLongitude_rad));
+
+            // Sub-lunar Latitude is the Declination
+            const lat_rad = declination_rad;
+
+            // Sub-lunar Longitude is (RA - GMST)
+            let lon_rad = rightAscension_rad - gmst_rad;
+
+            if (lon_rad > Math.PI) lon_rad -= 2 * Math.PI;
+            if (lon_rad < -Math.PI) lon_rad += 2 * Math.PI;
+
+            return {
+                latitude: lat_rad * RAD_TO_DEG,
+                longitude: lon_rad * RAD_TO_DEG,
+                phase: moonPhase
+            };
+        }
+
 
         // --- Start Application ---
         init();
