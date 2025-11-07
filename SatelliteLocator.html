@@ -415,7 +415,7 @@
         <div id="info">
             <h1>Satellite Locator</h1>
             
-            <h2 class="sat-color">SIMULATION STATE</h2>
+            <h2 class="">SIMULATION STATE</h2>
             <div class="toggle-switch">
                 <label>Show Ground Track</label>
                 <label class="switch">
@@ -436,7 +436,7 @@
                 <label for="speed-main">Speed <span class="value" id="speed_val_main">x500</span></label>
                 <input type="range" id="speed-main" min="1" max="5000" step="1" value="500">
             </div>
-            <h2 class="sat-color">SATELLITE STATE</h2>
+            <h2 class="">SATELLITE STATE</h2>
             <div class="display-group">
                 <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">N/A</span></div>
                 <div class="display-item"><span class="display-label">Period</span><span class="display-value" id="period_val">N/A</span></div>
@@ -467,12 +467,12 @@
                 </div>
                 <div style="display: flex; gap: 5px;">
                     <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Meteosat 3G – Imager 1 (MTG-I1)</button>
-					<button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">QZS 1R<br>(Michibiki 1R)</button>
+					<button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">QZS 1R (Michibiki)</button>
                     
                 </div>
             </div>
 			
-			<h2 class="sat-color">SATELLITE TLE</h2>
+			<h2 class="">SATELLITE TWO-LINE ELEMENT</h2>
             <div class="control-group">
                 <label for="tle-1">TLE Line 1</label>
                 <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
@@ -620,7 +620,7 @@
                 dom.fetchUkubeBtn.textContent = "UKube-1";
                 dom.fetchTiangongBtn.textContent = "Tiangong space station";
                 dom.fetchMtgi1Btn.textContent = "Meteosat 3G – Imager 1 (MTG-I1)";
-                dom.fetchQzs1rBtn.textContent = "QZS 1R<br>(Michibiki 1R)";
+                dom.fetchQzs1rBtn.textContent = "QZS 1R (Michibiki)";
                 dom.fetchArktikam2Btn.textContent = "Arktika-M 2";
                 
                 dom.fetchIssBtn.disabled = false;
@@ -637,7 +637,7 @@
         function loadUkubeTle() { loadTle("40074", "fetch-ukube-btn", "UKube-1"); }
         function loadTiangongTle() { loadTle("48274", "fetch-tiangong-btn", "Tiangong space station"); }
         function loadMtgi1Tle() { loadTle("54743", "fetch-mtgi1-btn", "Meteosat 3G – Imager 1 (MTG-I1)"); }
-        function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "QZS 1R<br>(Michibiki 1R)"); }
+        function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "QZS 1R (Michibiki)"); }
         function loadArktikam2Tle() { loadTle("58584", "fetch-arktikam2-btn", "Arktika-M 2"); }
 
         function parseAndApplyTle(line1, line2) {
