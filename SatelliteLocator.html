@@ -347,7 +347,7 @@
         }
         textarea.tle-input {
             width: 100%;
-			height: 5em;
+			height: 4em;
             background-color: #222;
             color: #fff;
             border: 1px solid #555;
@@ -415,17 +415,6 @@
         <div id="info">
             <h1>Satellite Locator</h1>
             
-            <h2 class="sat-color">SATELLITE TLE</h2>
-            <div class="control-group">
-                <label for="tle-1">TLE Line 1</label>
-                <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
-            </div>
-            <div class="control-group">
-                <label for="tle-2">TLE Line 2</label>
-                <textarea id="tle-2" class="tle-input" rows="1">2 49811  98.2045 352.8126 0001334  89.5317 270.6015 14.57143468222379</textarea>
-            </div>
-            <div id="tle_warning" class="warning"></div>
-
             <h2 class="sat-color">SIMULATION STATE</h2>
             <div class="toggle-switch">
                 <label>Show Ground Track</label>
@@ -469,18 +458,30 @@
             </div>
             <div class="button-group" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
                 <div style="display: flex; gap: 5px;">
-                    <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load ISS TLE</button>
-                    <button id="fetch-ukube-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load UKube-1</button>
+                    <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">International Space Station</button>
+                    <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Tiangong space station</button>
                 </div>
                 <div style="display: flex; gap: 5px;">
-                    <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load Tiangong</button>
-                    <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load MTG-I1</button>
+                    <button id="fetch-ukube-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">UKube-1</button>
+                    <button id="fetch-arktikam2-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Arktika-M 2</button>
                 </div>
                 <div style="display: flex; gap: 5px;">
-                    <button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load QZS-1R</button>
-                    <button id="fetch-arktikam2-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Load Arktika-M 2</button>
+                    <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Meteosat 3G – Imager 1 (MTG-I1)</button>
+					<button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">QZS 1R<br>(Michibiki 1R)</button>
+                    
                 </div>
             </div>
+			
+			<h2 class="sat-color">SATELLITE TLE</h2>
+            <div class="control-group">
+                <label for="tle-1">TLE Line 1</label>
+                <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
+            </div>
+            <div class="control-group">
+                <label for="tle-2">TLE Line 2</label>
+                <textarea id="tle-2" class="tle-input" rows="1">2 49811  98.2045 352.8126 0001334  89.5317 270.6015 14.57143468222379</textarea>
+            </div>
+            <div id="tle_warning" class="warning"></div>
                 
         </div>
         <button id="toggle-button" title="Toggle Controls">◀</button>
@@ -615,12 +616,12 @@
                 alert(`Failed to load TLE data for ${buttonText.replace('Load ', '')}. See console for details.`);
             } finally {
                 // Re-enable all fetch buttons
-                dom.fetchIssBtn.textContent = "Load ISS TLE";
-                dom.fetchUkubeBtn.textContent = "Load UKube-1";
-                dom.fetchTiangongBtn.textContent = "Load Tiangong";
-                dom.fetchMtgi1Btn.textContent = "Load MTG-I1";
-                dom.fetchQzs1rBtn.textContent = "Load QZS-1R";
-                dom.fetchArktikam2Btn.textContent = "Load Arktika-M 2";
+                dom.fetchIssBtn.textContent = "International Space Station";
+                dom.fetchUkubeBtn.textContent = "UKube-1";
+                dom.fetchTiangongBtn.textContent = "Tiangong space station";
+                dom.fetchMtgi1Btn.textContent = "Meteosat 3G – Imager 1 (MTG-I1)";
+                dom.fetchQzs1rBtn.textContent = "QZS 1R<br>(Michibiki 1R)";
+                dom.fetchArktikam2Btn.textContent = "Arktika-M 2";
                 
                 dom.fetchIssBtn.disabled = false;
                 dom.fetchUkubeBtn.disabled = false;
@@ -632,12 +633,12 @@
         }
         
         // Convenience functions to use the generic loader
-        function loadIssTle() { loadTle("25544", "fetch-iss-btn", "Load ISS TLE"); }
-        function loadUkubeTle() { loadTle("40074", "fetch-ukube-btn", "Load UKube-1"); }
-        function loadTiangongTle() { loadTle("48274", "fetch-tiangong-btn", "Load Tiangong"); }
-        function loadMtgi1Tle() { loadTle("54743", "fetch-mtgi1-btn", "Load MTG-I1"); }
-        function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "Load QZS-1R"); }
-        function loadArktikam2Tle() { loadTle("58584", "fetch-arktikam2-btn", "Load Arktika-M 2"); }
+        function loadIssTle() { loadTle("25544", "fetch-iss-btn", "International Space Station"); }
+        function loadUkubeTle() { loadTle("40074", "fetch-ukube-btn", "UKube-1"); }
+        function loadTiangongTle() { loadTle("48274", "fetch-tiangong-btn", "Tiangong space station"); }
+        function loadMtgi1Tle() { loadTle("54743", "fetch-mtgi1-btn", "Meteosat 3G – Imager 1 (MTG-I1)"); }
+        function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "QZS 1R<br>(Michibiki 1R)"); }
+        function loadArktikam2Tle() { loadTle("58584", "fetch-arktikam2-btn", "Arktika-M 2"); }
 
         function parseAndApplyTle(line1, line2) {
             try {
