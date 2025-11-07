@@ -4,15 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Satellite Locator</title>
+    
+    <!-- Google Fonts: Anta for titles, Roboto Mono for body/data -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
     
+    <!-- D3.js libraries for map rendering and TopoJSON parsing -->
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://d3js.org/topojson.v3.min.js"></script>
+    
+    <!-- satellite.js library for SGP4 propagation and coordinate transforms -->
     <script src="https://unpkg.com/satellite.js@6.0.1/dist/satellite.min.js"></script>
 
     <style>
+        /* --- General Body and Font Styles --- */
 		body { 
             margin: 0; 
             font-family: "Roboto Mono", monospace;
@@ -23,14 +29,15 @@
             line-height: 80%;
             background-color: #000; 
             color: #fff; 
-            overflow: hidden; 
+            overflow: hidden; /* Prevents scrollbars */
         }
         
+        /* --- Main Control Panel (Left Side) --- */
         #panel-container {
             position: absolute; 
 			top: 0px;
             left: 0; 
-			z-index: 10;
+			z-index: 10; /* Ensures panel is above map */
             display: flex;
             align-items: flex-start;
             flex-shrink: 0;
@@ -38,22 +45,23 @@
 
         #info {
             width: 335px;
-            max-height: calc(100vh - 25px);
-            overflow-y: auto;
+            max-height: calc(100vh - 25px); /* Full height minus some margin */
+            overflow-y: auto; /* Allows panel to scroll if content is long */
             margin: 5px;
 			margin-left: 15px;
             padding: 5px;
-            background: rgba(0, 0, 0, 0.1);
+            background: rgba(0, 0, 0, 0.1); /* Semi-transparent background */
             border-radius: 10px;
-            backdrop-filter: blur(3px);
+            backdrop-filter: blur(3px); /* Frosted glass effect */
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            border: 1px solid rgba(190, 153, 5, 1);
+            border: 1px solid rgba(190, 153, 5, 1); /* Gold border */
             transition: all 0.35s ease-in-out;
-            transform: translateX(0);
+            transform: translateX(0); /* Initial state: visible */
         }
 
+        /* Collapsed state for the panel */
         #info.collapsed {
-            transform: translateX(-100%);
+            transform: translateX(-100%); /* Slides panel off-screen */
             width: 0px;
             padding-left: 0;
             padding-right: 0;
@@ -61,10 +69,11 @@
             overflow-x: hidden;
         }
 
+        /* --- Panel Toggle Button (Arrow) --- */
         #toggle-button {
             position: absolute;
             top: 2%;
-            left: 100%;
+            left: 100%; /* Sits on the right edge of the panel */
             transform: translateX(0);
             width: 48px;
             height: 48px;
@@ -83,17 +92,18 @@
             transition: all 0.35s ease-in-out;
         }
 
+        /* Style for toggle button when panel is collapsed */
         #info.collapsed + #toggle-button {
             transform: translateX(-10%) translateY(250%);
-			background: #ed1248;
+			background: #ed1248; /* Changes color to red when hidden */
         }
         
-        /* NEW: Mini-Panel Styles */
+        /* --- Mini-Panel (Top Center, visible when panel is collapsed) --- */
         #mini-panel {
             position: absolute;
-            top: 55px; /* Space from the top edge */
+            top: 55px;
             left: 50%;
-            transform: translateX(-50%) translateY(-150%); /* Start hidden upwards */
+            transform: translateX(-50%) translateY(-150%); /* Starts hidden above screen */
             width: auto;
             z-index: 5; /* Below main panel, above map */
             display: block;
@@ -101,8 +111,7 @@
             gap: 25px;
             padding: 8px 20px;
             background: rgba(0, 0, 0, 0.2);
-            border: 0px solid rgba(190, 153, 5, 0.5);
-            border-radius: 10px 10px 10px 10px;
+            border-radius: 10px;
             backdrop-filter: blur(3px);
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
             transition: all 0.35s ease-in-out;
@@ -112,7 +121,7 @@
 
         /* Show mini-panel when main panel is collapsed */
         #info.collapsed ~ #mini-panel {
-            transform: translateX(0%) translateY(0);
+            transform: translateX(0%) translateY(0); /* Slides into view */
             opacity: 1;
             visibility: visible;
         }
@@ -134,29 +143,27 @@
             white-space: nowrap;
         }
         
-        #mini-panel .value { /* Target the speed value span */
+        #mini-panel .value {
              color: #ccc;
              font-weight: normal;
-             min-width: 35px; /* Give it space */
+             min-width: 35px;
         }
 
         #mini-panel #sim-time-display {
-            /* Override existing styles from main panel */
             font-size: 1.0em;
             color: #BE9905;
             padding: 0;
             background: none;
             margin-bottom: 0;
-            min-width: 190px; /* Give it space */
+            min-width: 190px;
             text-align: left;
         }
 
         #mini-panel input[type="range"] {
-            width: 150px; /* Fixed width for the slider */
+            width: 150px;
         }
-        /* End New Mini-Panel Styles */
 
-
+        /* --- Panel Content: Headers & Controls --- */
         h1 {
             margin-top: 0; 
             font-size: 1.8em; 
@@ -183,6 +190,8 @@
 		}
         .control-group { margin-bottom: 12px; }
         label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        
+        /* Range Slider Styles */
         input[type="range"] { 
             width: 100%; 
             -webkit-appearance: none; 
@@ -210,6 +219,7 @@
             border-radius: 50%; 
             border: 2px solid #000;
         }
+        /* Disabled state for sliders (used in "Catch up" mode) */
         input[type="range"]:disabled::-webkit-slider-thumb {
             background: #555;
             cursor: not-allowed;
@@ -218,7 +228,11 @@
             background: #555;
             cursor: not-allowed;
         }
+        
+        /* Value displays (e.g., "x500", "1 day") */
         .value { float: right; font-weight: normal; color: #ccc; }
+        
+        /* Satellite State Display List */
         .display-item { 
             display: flex; 
             justify-content: space-between; 
@@ -229,6 +243,8 @@
         .display-item:last-child { border-bottom: none; }
         .display-label { color: #aaa; }
         .display-value { font-weight: bold; }
+        
+        /* TLE Re-entry Warning Box */
         .warning { 
             font-size: 0.85em; 
             font-weight: bold; 
@@ -236,12 +252,14 @@
             padding: 6px; 
             margin-top: 5px; 
             border-radius: 4px; 
-            display: none; 
+            display: none; /* Hidden by default */
         }
         .warning.amber { display: block; background-color: #5d4500; color: #ffc107; }
         .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
+        
         .display-group { margin-bottom: 12px; } 
 
+        /* --- Map Container & SVG --- */
         #map-container {
             position: absolute;
             top: 0;
@@ -257,27 +275,36 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: transparent;
+            background-color: transparent; /* See-through to body background */
         }
 
-        /* Map Element Styles */
+        /* --- Map Element Styles --- */
         .coastline { 
             fill: none;
-            stroke: #5d9732;
+            stroke: #5d9732; /* Landmass outline color */
             stroke-width: 0.5px;
         }
         .graticule { 
             fill: none; 
-            stroke: #333; 
+            stroke: #333; /* Lat/Lon grid line color */
             stroke-width: 0.5px; 
             stroke-dasharray: 2,2; 
         }
-        .satellite { fill: #00ffff; stroke: #fff; stroke-width: 1.5px; }
-        .ground-track { fill: none; stroke: #ed1248; stroke-width: 1.5px; opacity: 0.7; }
+        .satellite { 
+            fill: #00ffff; /* Cyan */
+            stroke: #fff; 
+            stroke-width: 1.5px; 
+        }
+        .ground-track { 
+            fill: none; 
+            stroke: #ed1248; /* Red */
+            stroke-width: 1.5px; 
+            opacity: 0.7; 
+        }
 
         /* Sun and Shadow Styles */
         .sun-marker {
-            fill: #ffcc00;
+            fill: #ffcc00; /* Yellow */
             stroke: #fff;
             stroke-width: 2px;
             fill-opacity: 0.9;
@@ -285,21 +312,23 @@
         .shadow-zone {
             fill: #000;
             stroke: none;
-            opacity: 0.2; 
+            opacity: 0.2; /* Day/night terminator shadow */
         }
 
-        /* NEW: Moon Styles */
+        /* Moon Styles */
         .moon-dark-side {
-            fill: #333;
+            fill: #333; /* The base (unlit) part of the moon */
             stroke: #555;
             stroke-width: 1px;
         }
         .moon-lit-side {
-            fill: #ddd;
+            fill: #ddd; /* The lit portion (drawn as a path) */
             stroke: none;
         }
 
-        /* Toggle Switch Styles */
+        /* --- UI Widget Styles --- */
+        
+        /* Toggle Switch */
         .toggle-switch {
             display: flex;
             justify-content: space-between;
@@ -335,7 +364,7 @@
         input:checked + .slider { background-color: #BE9905; }
         input:checked + .slider:before { transform: translateX(26px); }
 
-        /* Other new UI styles */
+        /* Date/Time Input */
         input[type="datetime-local"] {
             width: 100%;
             background-color: #333;
@@ -345,9 +374,11 @@
             padding: 0px;
             font-family: "Roboto Mono", monospace;
         }
+        
+        /* TLE Text Input */
         textarea.tle-input {
             width: 100%;
-			height: 4em;
+			height: 4em; /* Sized for 2 lines + padding */
             background-color: #222;
             color: #fff;
             border: 1px solid #555;
@@ -358,10 +389,9 @@
 			line-height: 1.5;
             resize: none;
             box-sizing: border-box; 
-            
         }
-
-        /* This ID is now in the mini-panel, but style is fine */
+        
+        /* Simulation Time Display (Mini-Panel) */
         #sim-time-display {
             font-size: 1.1em;
             color: #BE9905;
@@ -372,7 +402,7 @@
             margin-bottom: 15px;
         }
         
-        /* NEW: Style for duplicated time display in main panel */
+        /* Simulation Time Display (Main Panel) */
         #sim-time-display-main {
             font-size: 1.1em;
             color: #BE9905;
@@ -383,9 +413,7 @@
             margin-bottom: 15px;
         }
         
-        .sat-color { color: #ed1248; }
-
-        /* Button Style */
+        /* Standard Button */
         .sim-button {
             width: 100%;
             padding: 10px;
@@ -400,7 +428,7 @@
             margin-top: 10px;
         }
         .sim-button:hover {
-            background-color: #ffd966;
+            background-color: #ffd966; /* Lighter gold on hover */
         }
         .sim-button:disabled {
             background-color: #555;
@@ -411,912 +439,989 @@
 </head>
 <body>
 
-    <div id="panel-container">
-        <div id="info">
-            <h1>Satellite Locator</h1>
-            
-            <h2 class="">SIMULATION STATE</h2>
-            <div class="toggle-switch">
-                <label>Show Ground Track</label>
-                <label class="switch">
-                    <input type="checkbox" id="track" checked>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            
-            <div class="control-group">
-                <label for="track-length">Track Length <span class="value" id="track_length_val">1 day</span></label>
-                <input type="range" id="track-length" min="1" max="50" step="1" value="1">
-            </div>
-            <div class="control-group">
-                <label>TIME (UTC)</label>
-                <div id="sim-time-display-main"></div>
-            </div>
-            <div class="control-group">
-                <label for="speed-main">Speed <span class="value" id="speed_val_main">x500</span></label>
-                <input type="range" id="speed-main" min="1" max="5000" step="1" value="500">
-            </div>
-            <h2 class="">SATELLITE STATE</h2>
-            <div class="display-group">
-                <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">N/A</span></div>
-                <div class="display-item"><span class="display-label">Period</span><span class="display-value" id="period_val">N/A</span></div>
-                <div class="display-item"><span class="display-label">Perigee</span><span class="display-value" id="perigee_val">N/A</span></div>
-                <div class="display-item"><span class="display-label">Apogee</span><span class="display-value" id="apogee_val">N/A</span></div>
-                <div class="display-item"><span class="display-label">Inclination</span><span class="display-value" id="inc_val">N/A</span></div>
-                <div class="display-item"><span class="display-label">Eccentricity</span><span class="display-value" id="ecc_val">N/A</span></div>
-                </div>
-            
-            <h2>SATELLITE CONTROLS</h2>
-            <div class="control-group">
-                <label for="epoch">Epoch (UTC)</label>
-                <input type="datetime-local" id="epoch">
-            </div>
-            
-            <div style="display: flex; gap: 5px; margin-top: 10px;">
-                <button id="reset-sim-btn" class="sim-button" style="margin-top: 0; flex: 1;">Reset to Epoch</button>
-                <button id="catch-up-btn" class="sim-button" style="margin-top: 0; flex: 1;">Catch up</button>
-            </div>
-            <div class="button-group" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
-                <div style="display: flex; gap: 5px;">
-                    <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">International Space Station</button>
-                    <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Tiangong space station</button>
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button id="fetch-ukube-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">UKube-1</button>
-                    <button id="fetch-arktikam2-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Arktika-M 2</button>
-                </div>
-                <div style="display: flex; gap: 5px;">
-                    <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Meteosat 3G – Imager 1 (MTG-I1)</button>
-					<button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">QZS 1R (Michibiki)</button>
-                    
-                </div>
-            </div>
-			
-			<h2 class="">SATELLITE TWO-LINE ELEMENT</h2>
-            <div class="control-group">
-                <label for="tle-1">TLE Line 1</label>
-                <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
-            </div>
-            <div class="control-group">
-                <label for="tle-2">TLE Line 2</label>
-                <textarea id="tle-2" class="tle-input" rows="1">2 49811  98.2045 352.8126 0001334  89.5317 270.6015 14.57143468222379</textarea>
-            </div>
-            <div id="tle_warning" class="warning"></div>
-                
+<!-- 
+    ==================================================================
+    PANEL CONTAINER
+    This holds the main control panel and its toggle button.
+    ==================================================================
+-->
+<div id="panel-container">
+    
+    <!-- Main Info Panel (Collapsible) -->
+    <div id="info">
+        <h1>Satellite Locator</h1>
+        
+        <!-- Simulation State Section -->
+        <h2>SIMULATION STATE</h2>
+        <div class="toggle-switch">
+            <label>Show Ground Track</label>
+            <label class="switch">
+                <input type="checkbox" id="track" checked>
+                <span class="slider"></span>
+            </label>
         </div>
-        <button id="toggle-button" title="Toggle Controls">◀</button>
+        
+        <div class="control-group">
+            <label for="track-length">Track Length <span class="value" id="track_length_val">1 day</span></label>
+            <input type="range" id="track-length" min="1" max="50" step="1" value="1">
+        </div>
+        <div class="control-group">
+            <label>TIME (UTC)</label>
+            <div id="sim-time-display-main"></div>
+        </div>
+        <div class="control-group">
+            <label for="speed-main">Speed <span class="value" id="speed_val_main">x500</span></label>
+            <input type="range" id="speed-main" min="1" max="5000" step="1" value="500">
+        </div>
+        
+        <!-- Satellite State Display -->
+        <h2>SATELLITE STATE</h2>
+        <div class="display-group">
+            <div class="display-item"><span class="display-label">Altitude</span><span class="display-value" id="alt_val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Period</span><span class="display-value" id="period_val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Perigee</span><span class="display-value" id="perigee_val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Apogee</span><span class="display-value" id="apogee_val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Inclination</span><span class="display-value" id="inc_val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Eccentricity</span><span class="display-value" id="ecc_val">N/A</span></div>
+        </div>
+        
+        <!-- Simulation & TLE Controls -->
+        <h2>SATELLITE CONTROLS</h2>
+        <div class="control-group">
+            <label for="epoch">Epoch (UTC)</label>
+            <input type="datetime-local" id="epoch">
+        </div>
+        
+        <!-- Button row for Reset and Catch up -->
+        <div style="display: flex; gap: 5px; margin-top: 10px;">
+            <button id="reset-sim-btn" class="sim-button" style="margin-top: 0; flex: 1;">Reset to Epoch</button>
+            <button id="catch-up-btn" class="sim-button" style="margin-top: 0; flex: 1;">Catch up</button>
+        </div>
+        
+        <!-- Button group for loading pre-set TLEs -->
+        <div class="button-group" style="display: flex; flex-direction: column; gap: 5px; margin-top: 5px;">
+            <div style="display: flex; gap: 5px;">
+                <button id="fetch-iss-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">International Space Station</button>
+                <button id="fetch-tiangong-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Tiangong space station</button>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button id="fetch-ukube-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">UKube-1</button>
+                <button id="fetch-arktikam2-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Arktika-M 2</button>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button id="fetch-mtgi1-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">Meteosat 3G – Imager 1 (MTG-I1)</button>
+                <button id="fetch-qzs1r-btn" class="sim-button" style="margin-top: 0; flex: 1; font-size: 0.9em;">QZS 1R (Michibiki)</button>
+            </div>
+        </div>
+        
+        <!-- TLE Input Section -->
+        <h2>SATELLITE TWO-LINE ELEMENT</h2>
+        <div class="control-group">
+            <label for="tle-1">TLE Line 1</label>
+            <textarea id="tle-1" class="tle-input" rows="1">1 49811U 21088A   25296.34027778  .00001037  00000-0  69443-4 0  9997</textarea>
+        </div>
+        <div class="control-group">
+            <label for="tle-2">TLE Line 2</label>
+            <textarea id="tle-2" class="tle-input" rows="1">2 49811  98.2045 352.8126 0001334  89.5317 270.6015 14.57143468222379</textarea>
+        </div>
+        <div id="tle_warning" class="warning"></div>
+            
+    </div> <!-- End #info panel -->
+    
+    <!-- Panel Toggle Button -->
+    <button id="toggle-button" title="Toggle Controls">◀</button>
 
-        <div id="mini-panel">
-            <div class="mini-panel-group">
-                <label>TIME (UTC)</label>
-                <div id="sim-time-display"></div> 
-            </div>
-            <div class="mini-panel-group">
-                 <label for="speed">Speed&nbsp <span class="value" style="color: #BE9905" id="speed_val">x500</span></label>
-                <input type="range" id="speed" min="1" max="5000" step="1" value="500">
-            </div>
+    <!-- Mini-Panel (shows when main panel is collapsed) -->
+    <div id="mini-panel">
+        <div class="mini-panel-group">
+            <label>TIME (UTC)</label>
+            <div id="sim-time-display"></div> 
+        </div>
+        <div class="mini-panel-group">
+             <label for="speed">Speed&nbsp <span class="value" style="color: #BE9905" id="speed_val">x500</span></label>
+            <input type="range" id="speed" min="1" max="5000" step="1" value="500">
         </div>
     </div>
     
-    <div id="map-container">
-        <svg id="map-svg"></svg>
-    </div>
+</div> <!-- End #panel-container -->
 
+
+<!-- 
+    ==================================================================
+    MAP CONTAINER
+    This holds the D3-rendered SVG map and all its elements.
+    ==================================================================
+-->
+<div id="map-container">
+    <svg id="map-svg"></svg>
+</div>
+
+<!-- 
+    ==================================================================
+    JAVASCRIPT APPLICATION
+    ==================================================================
+-->
+<script>
+    'use strict'; // Enforce stricter parsing and error handling
+
+    // --- Application Constants ---
     
-    <script>
-        // --- Constants ---
-        const EARTH_RADIUS_KM = 6378.137; // WGS-84 Equatorial Radius
-        const GM_KM3_S2 = 398600.4418; // Earth's gravitational parameter (km^3/s^2)
-        const DEG_TO_RAD = Math.PI / 180;
-        const RAD_TO_DEG = 180 / Math.PI;
-        // NEW: Moon constants
-        const KNOWN_NEW_MOON_MS = new Date(Date.UTC(2000, 0, 6, 18, 14)).getTime();
-        const SYNODIC_PERIOD_DAYS = 29.530588853;
+    // Earth and orbital mechanics constants
+    const EARTH_RADIUS_KM = 6378.137;     // WGS-84 Equatorial Radius (km)
+    const GM_KM3_S2 = 398600.4418;     // Earth's gravitational parameter (km^3/s^2)
+    const DEG_TO_RAD = Math.PI / 180;  // Conversion factor for degrees to radians
+    const RAD_TO_DEG = 180 / Math.PI;  // Conversion factor for radians to degrees
+    
+    // Moon phase calculation constants
+    const KNOWN_NEW_MOON_MS = new Date(Date.UTC(2000, 0, 6, 18, 14)).getTime(); // A reference new moon
+    const SYNODIC_PERIOD_DAYS = 29.530588853; // Moon's phase cycle (new to new)
 
+    // --- Global State ---
+    
+    // D3 and map objects
+    let svg, projection, path, graticule;
+    
+    // Simulation time variables
+    let lastTimestamp = 0;           // Timestamp of the last animation frame
+    let epochDate = new Date();      // The user-defined start time of the simulation
+    let currentSimDate = new Date(); // The "current" time in the simulation
+    let elapsedSimSeconds = 0;       // Sim seconds elapsed since epochDate
+    let isCatchingUp = false;      // Flag for "Catch up" mode
+    
+    // Satellite and celestial body data
+    let satelliteConfigs = [ { satrec: null } ]; // Holds the parsed TLE record
+    let propagatedStates = [ {} ];               // Holds the satellite's current state (pos, alt)
+    let groundTracks = [ [] ];                   // Array of [lon, lat, time] points for the track
+    let sunPos = { latitude: 0, longitude: 0 }; // Current sub-solar point
+    let moonData = { latitude: 0, longitude: 0, phase: 0 }; // Current sub-lunar point and phase
+    
+    // D3 Geo-Circles for drawing terminator/shadows
+    let civilCircle = d3.geoCircle().radius(90);  // Sun at 0 deg (terminator)
+    let nauticalCircle = d3.geoCircle().radius(84); // Sun at -6 deg
+    let astronomicalCircle = d3.geoCircle().radius(78); // Sun at -12 deg
+    let nightCircle = d3.geoCircle().radius(72);  // Sun at -18 deg (true night)
 
-        // --- Global State ---
-        let svg, projection, path, graticule;
-        let lastTimestamp = 0;
-        let epochDate = new Date();
-        let currentSimDate = new Date();
-        let elapsedSimSeconds = 0;
-        let isCatchingUp = false; // State for catch-up mode
-        
-        let satelliteConfigs = [ { satrec: null } ];
-        let propagatedStates = [ {} ]; 
-        let groundTracks = [ [] ];
-        
-        let sunPos = { latitude: 0, longitude: 0 };
-        let moonData = { latitude: 0, longitude: 0, phase: 0 }; // NEW
-        
-        // Circles are centered on the antipode (opposite of sun)
-        let civilCircle = d3.geoCircle().radius(90);       // Sun at 0 deg (terminator)
-        let nauticalCircle = d3.geoCircle().radius(84);     // Sun at -6 deg
-        let astronomicalCircle = d3.geoCircle().radius(78); // Sun at -12 deg
-        let nightCircle = d3.geoCircle().radius(72);        // Sun at -18 deg (true night)
-
-        // --- DOM Elements ---
-        const dom = {
-            infoDiv: document.getElementById('info'),
-            toggleButton: document.getElementById('toggle-button'),
-            mapContainer: document.getElementById('map-container'),
-            mapSvg: document.getElementById('map-svg'),
-            epochInput: document.getElementById('epoch'),
-            speedSlider: document.getElementById('speed'), // Mini-panel slider
-            speedValue: document.getElementById('speed_val'), // Mini-panel value
-            simTimeDisplay: document.getElementById('sim-time-display'), // Mini-panel time
-            speedSliderMain: document.getElementById('speed-main'),           // Main-panel slider
-            speedValueMain: document.getElementById('speed_val_main'),       // Main-panel value
-            simTimeDisplayMain: document.getElementById('sim-time-display-main'), // Main-panel time
-            resetSimBtn: document.getElementById('reset-sim-btn'),
-            catchUpBtn: document.getElementById('catch-up-btn'), 
-            fetchIssBtn: document.getElementById('fetch-iss-btn'),
-            fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
-            fetchTiangongBtn: document.getElementById('fetch-tiangong-btn'),
-            fetchMtgi1Btn: document.getElementById('fetch-mtgi1-btn'),
-            fetchQzs1rBtn: document.getElementById('fetch-qzs1r-btn'),
-            fetchArktikam2Btn: document.getElementById('fetch-arktikam2-btn'),
-            trackLengthSlider: document.getElementById('track-length'), 
-            trackLengthValue: document.getElementById('track_length_val'), 
-            sat: {
-                tle1: document.getElementById(`tle-1`),
-                tle2: document.getElementById(`tle-2`),
-                warning: document.getElementById(`tle_warning`),
-                track: document.getElementById(`track`),
-                val: {
-                    alt: document.getElementById(`alt_val`),
-                    period: document.getElementById(`period_val`),
-                    perigee: document.getElementById(`perigee_val`),
-                    apogee: document.getElementById(`apogee_val`),
-                    inc: document.getElementById(`inc_val`),
-                    ecc: document.getElementById(`ecc_val`)
-                }
-            }
-        };
-
-        // --- Main Init Function ---
-        function init() {
-            setupUI();
-            initMap();
-            resetSimulation(); 
-            requestAnimationFrame(simulationLoop);
-            window.addEventListener('resize', onWindowResize);
-        }
-
-        // --- TLE Fetching ---
-        async function loadTle(tleId, buttonId, buttonText) {
-            const url = `https://tle.ivanstanojevic.me/api/tle/${tleId}`;
-            const button = document.getElementById(buttonId);
-            
-            // Disable all fetch buttons
-            dom.fetchIssBtn.disabled = true;
-            dom.fetchUkubeBtn.disabled = true;
-            dom.fetchTiangongBtn.disabled = true;
-            dom.fetchMtgi1Btn.disabled = true;
-            dom.fetchQzs1rBtn.disabled = true;
-            dom.fetchArktikam2Btn.disabled = true;
-
-            button.textContent = "Loading...";
-            
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const tleData = await response.json();
-                
-                if (tleData.line1 && tleData.line2) {
-                    parseAndApplyTle(tleData.line1, tleData.line2);
-                } else {
-                    throw new Error("Invalid TLE data received.");
-                }
-
-            } catch (error) {
-                console.error(`Failed to fetch TLE for ID ${tleId}:`, error);
-                alert(`Failed to load TLE data for ${buttonText.replace('Load ', '')}. See console for details.`);
-            } finally {
-                // Re-enable all fetch buttons
-                dom.fetchIssBtn.textContent = "International Space Station";
-                dom.fetchUkubeBtn.textContent = "UKube-1";
-                dom.fetchTiangongBtn.textContent = "Tiangong space station";
-                dom.fetchMtgi1Btn.textContent = "Meteosat 3G – Imager 1 (MTG-I1)";
-                dom.fetchQzs1rBtn.textContent = "QZS 1R (Michibiki)";
-                dom.fetchArktikam2Btn.textContent = "Arktika-M 2";
-                
-                dom.fetchIssBtn.disabled = false;
-                dom.fetchUkubeBtn.disabled = false;
-                dom.fetchTiangongBtn.disabled = false;
-                dom.fetchMtgi1Btn.disabled = false;
-                dom.fetchQzs1rBtn.disabled = false;
-                dom.fetchArktikam2Btn.disabled = false;
+    /**
+     * Cache of all DOM elements for quick access.
+     * This avoids repeated document.getElementById() calls.
+     */
+    const dom = {
+        infoDiv: document.getElementById('info'),
+        toggleButton: document.getElementById('toggle-button'),
+        mapContainer: document.getElementById('map-container'),
+        mapSvg: document.getElementById('map-svg'),
+        epochInput: document.getElementById('epoch'),
+        speedSlider: document.getElementById('speed'),
+        speedValue: document.getElementById('speed_val'),
+        simTimeDisplay: document.getElementById('sim-time-display'),
+        speedSliderMain: document.getElementById('speed-main'),
+        speedValueMain: document.getElementById('speed_val_main'),
+        simTimeDisplayMain: document.getElementById('sim-time-display-main'),
+        resetSimBtn: document.getElementById('reset-sim-btn'),
+        catchUpBtn: document.getElementById('catch-up-btn'),
+        fetchIssBtn: document.getElementById('fetch-iss-btn'),
+        fetchUkubeBtn: document.getElementById('fetch-ukube-btn'),
+        fetchTiangongBtn: document.getElementById('fetch-tiangong-btn'),
+        fetchMtgi1Btn: document.getElementById('fetch-mtgi1-btn'),
+        fetchQzs1rBtn: document.getElementById('fetch-qzs1r-btn'),
+        fetchArktikam2Btn: document.getElementById('fetch-arktikam2-btn'),
+        trackLengthSlider: document.getElementById('track-length'),
+        trackLengthValue: document.getElementById('track_length_val'),
+        sat: { // Satellite-specific elements
+            tle1: document.getElementById(`tle-1`),
+            tle2: document.getElementById(`tle-2`),
+            warning: document.getElementById(`tle_warning`),
+            track: document.getElementById(`track`),
+            val: { // Satellite data display values
+                alt: document.getElementById(`alt_val`),
+                period: document.getElementById(`period_val`),
+                perigee: document.getElementById(`perigee_val`),
+                apogee: document.getElementById(`apogee_val`),
+                inc: document.getElementById(`inc_val`),
+                ecc: document.getElementById(`ecc_val`)
             }
         }
+    };
+
+    /**
+     * Main initialization function.
+     * Kicks off UI setup, map initialization, simulation reset, and the animation loop.
+     */
+    function init() {
+        setupUI();
+        initMap();
+        resetSimulation(); 
+        requestAnimationFrame(simulationLoop); // Start the main loop
+        window.addEventListener('resize', onWindowResize); // Add resize listener
+    }
+
+    /**
+     * Fetches TLE data from a public API.
+     * @param {string} tleId - The NORAD Catalog ID for the satellite.
+     * @param {string} buttonId - The ID of the button that was clicked.
+     * @param {string} buttonText - The original text of the button.
+     */
+    async function loadTle(tleId, buttonId, buttonText) {
+        const url = `https://tle.ivanstanojevic.me/api/tle/${tleId}`;
+        const button = document.getElementById(buttonId);
         
-        // Convenience functions to use the generic loader
-        function loadIssTle() { loadTle("25544", "fetch-iss-btn", "International Space Station"); }
-        function loadUkubeTle() { loadTle("40074", "fetch-ukube-btn", "UKube-1"); }
-        function loadTiangongTle() { loadTle("48274", "fetch-tiangong-btn", "Tiangong space station"); }
-        function loadMtgi1Tle() { loadTle("54743", "fetch-mtgi1-btn", "Meteosat 3G – Imager 1 (MTG-I1)"); }
-        function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "QZS 1R (Michibiki)"); }
-        function loadArktikam2Tle() { loadTle("58584", "fetch-arktikam2-btn", "Arktika-M 2"); }
-
-        function parseAndApplyTle(line1, line2) {
-            try {
-                // --- Parse Epoch (Line 1) ---
-                const yearStr = line1.substring(18, 20);
-                const epochYear = parseInt(yearStr) < 57 ? 2000 + parseInt(yearStr) : 1900 + parseInt(yearStr);
-                const epochDay = parseFloat(line1.substring(20, 32));
-                
-                const epochDateTLE = new Date(Date.UTC(epochYear, 0, 1));
-                epochDateTLE.setMilliseconds(epochDateTLE.getMilliseconds() + (epochDay - 1) * 86400 * 1000);
-
-                // --- Apply Values to DOM ---
-                
-                // 1. Set Simulation Epoch and Speed
-                dom.epochInput.value = epochDateTLE.toISOString().slice(0, 16);
-                dom.speedSlider.value = 1;
-                dom.speedValue.textContent = 'x1';
-                dom.speedSliderMain.value = 1;      // SYNC
-                dom.speedValueMain.textContent = 'x1'; // SYNC
-
-                // 2. Set Satellite Parameters
-                dom.sat.tle1.value = line1;
-                dom.sat.tle2.value = line2;
-
-                // 3. Set display toggles
-                dom.sat.track.checked = true;
-
-                // 4. Reset simulation to apply new epoch and parse all TLEs
-                resetSimulation();
-            
-            } catch (err) {
-                console.error("Error parsing TLE data:", err);
-                alert("Failed to parse TLE data. See console.");
+        // Disable all fetch buttons to prevent multiple requests
+        dom.fetchIssBtn.disabled = true;
+        dom.fetchUkubeBtn.disabled = true;
+        dom.fetchTiangongBtn.disabled = true;
+        dom.fetchMtgi1Btn.disabled = true;
+        dom.fetchQzs1rBtn.disabled = true;
+        dom.fetchArktikam2Btn.disabled = true;
+        button.textContent = "Loading...";
+        
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            const tleData = await response.json();
+            
+            if (tleData.line1 && tleData.line2) {
+                // If successful, apply the new TLE data
+                parseAndApplyTle(tleData.line1, tleData.line2);
+            } else {
+                throw new Error("Invalid TLE data received.");
+            }
+
+        } catch (error) {
+            console.error(`Failed to fetch TLE for ID ${tleId}:`, error);
+            alert(`Failed to load TLE data for ${buttonText.replace('Load ', '')}. See console for details.`);
+        } finally {
+            // Re-enable all buttons and restore their text
+            dom.fetchIssBtn.textContent = "International Space Station";
+            dom.fetchUkubeBtn.textContent = "UKube-1";
+            dom.fetchTiangongBtn.textContent = "Tiangong space station";
+            dom.fetchMtgi1Btn.textContent = "Meteosat 3G – Imager 1 (MTG-I1)";
+            dom.fetchQzs1rBtn.textContent = "QZS 1R (Michibiki)";
+            dom.fetchArktikam2Btn.textContent = "Arktika-M 2";
+            
+            dom.fetchIssBtn.disabled = false;
+            dom.fetchUkubeBtn.disabled = false;
+            dom.fetchTiangongBtn.disabled = false;
+            dom.fetchMtgi1Btn.disabled = false;
+            dom.fetchQzs1rBtn.disabled = false;
+            dom.fetchArktikam2Btn.disabled = false;
+        }
+    }
+    
+    // --- TLE Fetcher Helper Functions ---
+    function loadIssTle() { loadTle("25544", "fetch-iss-btn", "International Space Station"); }
+    function loadUkubeTle() { loadTle("40074", "fetch-ukube-btn", "UKube-1"); }
+    function loadTiangongTle() { loadTle("48274", "fetch-tiangong-btn", "Tiangong space station"); }
+    function loadMtgi1Tle() { loadTle("54743", "fetch-mtgi1-btn", "Meteosat 3G – Imager 1 (MTG-I1)"); }
+    function loadQzs1rTle() { loadTle("49336", "fetch-qzs1r-btn", "QZS 1R (Michibiki)"); }
+    function loadArktikam2Tle() { loadTle("58584", "fetch-arktikam2-btn", "Arktika-M 2"); }
+
+    /**
+     * Applies fetched TLE data to the UI and resets the simulation.
+     * @param {string} line1 - The TLE line 1.
+     * @param {string} line2 - The TLE line 2.
+     */
+    function parseAndApplyTle(line1, line2) {
+        try {
+            // Parse the epoch year and day from TLE line 1
+            const yearStr = line1.substring(18, 20);
+            const epochYear = parseInt(yearStr) < 57 ? 2000 + parseInt(yearStr) : 1900 + parseInt(yearStr);
+            const epochDay = parseFloat(line1.substring(20, 32));
+            
+            // Convert epoch day to a full Date object
+            const epochDateTLE = new Date(Date.UTC(epochYear, 0, 1));
+            epochDateTLE.setMilliseconds(epochDateTLE.getMilliseconds() + (epochDay - 1) * 86400 * 1000);
+
+            // 1. Set simulation epoch input to the TLE's epoch
+            dom.epochInput.value = epochDateTLE.toISOString().slice(0, 16);
+            
+            // 2. Reset simulation speed to real-time (x1)
+            dom.speedSlider.value = 1;
+            dom.speedValue.textContent = 'x1';
+            dom.speedSliderMain.value = 1;
+            dom.speedValueMain.textContent = 'x1';
+
+            // 3. Set TLE text inputs
+            dom.sat.tle1.value = line1;
+            dom.sat.tle2.value = line2;
+
+            // 4. Ensure ground track is on
+            dom.sat.track.checked = true;
+
+            // 5. Reset simulation to apply all new settings
+            resetSimulation();
+        
+        } catch (err) {
+            console.error("Error parsing TLE data:", err);
+            alert("Failed to parse TLE data. See console.");
+        }
+    }
+
+    /**
+     * Sets up all UI event listeners.
+     */
+    function setupUI() {
+        // --- Panel Toggle Button ---
+        dom.toggleButton.addEventListener('click', () => {
+            dom.infoDiv.classList.toggle('collapsed');
+            dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
+        });
+
+        // --- Epoch Date Input ---
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // Correct for local timezone
+        now.setMilliseconds(null);
+        now.setSeconds(null);
+        dom.epochInput.value = now.toISOString().slice(0, 16);
+        dom.epochInput.addEventListener('change', resetSimulation);
+        
+        // --- Speed Slider Syncing ---
+        // Helper function to sync main and mini-panel sliders
+        function syncSpeed(sourceSlider, sourceValue, targetSlider, targetValue) {
+            const value = sourceSlider.value;
+            targetSlider.value = value;
+            const text = `x${value}`;
+            sourceValue.textContent = text;
+            targetValue.textContent = text;
         }
 
-        // --- UI Setup ---
-        function setupUI() {
-            // Toggle Button
-            dom.toggleButton.addEventListener('click', () => {
-                dom.infoDiv.classList.toggle('collapsed');
-                dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
-                // No JS needed for mini-panel, CSS handles it
-            });
+        // Add listeners to both sliders
+        dom.speedSlider.addEventListener('input', () => {
+            syncSpeed(dom.speedSlider, dom.speedValue, dom.speedSliderMain, dom.speedValueMain);
+        });
+        dom.speedSliderMain.addEventListener('input', () => {
+            syncSpeed(dom.speedSliderMain, dom.speedValueMain, dom.speedSlider, dom.speedValue);
+        });
 
-            // Set initial epoch
-            const now = new Date();
-            now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-            now.setMilliseconds(null);
-            now.setSeconds(null);
-            dom.epochInput.value = now.toISOString().slice(0, 16);
-            dom.epochInput.addEventListener('change', resetSimulation);
-            
-            // --- UPDATED: Sync Speed Sliders ---
-            function syncSpeed(sourceSlider, sourceValue, targetSlider, targetValue) {
-                const value = sourceSlider.value;
-                targetSlider.value = value;
-                const text = `x${value}`;
-                sourceValue.textContent = text;
-                targetValue.textContent = text;
-            }
+        // Set initial speed values for both
+        const initialSpeed = dom.speedSlider.value;
+        dom.speedSliderMain.value = initialSpeed;
+        dom.speedValue.textContent = `x${initialSpeed}`;
+        dom.speedValueMain.textContent = `x${initialSpeed}`;
 
-            // Original mini-panel slider
-            dom.speedSlider.addEventListener('input', () => {
-                syncSpeed(dom.speedSlider, dom.speedValue, dom.speedSliderMain, dom.speedValueMain);
-            });
-            
-            // New main-panel slider
-            dom.speedSliderMain.addEventListener('input', () => {
-                syncSpeed(dom.speedSliderMain, dom.speedValueMain, dom.speedSlider, dom.speedValue);
-            });
-
-            // Set initial values for both
-            const initialSpeed = dom.speedSlider.value;
-            dom.speedSliderMain.value = initialSpeed;
-            dom.speedValue.textContent = `x${initialSpeed}`;
-            dom.speedValueMain.textContent = `x${initialSpeed}`;
-            // --- END UPDATED SPEED SLIDERS ---
-
-            // --- NEW: Track Length Slider ---
-            function updateTrackLengthDisplay() {
-                const days = dom.trackLengthSlider.value;
-                dom.trackLengthValue.textContent = `${days} day${days == 1 ? '' : 's'}`; // Handle plural
-            }
-            
-            dom.trackLengthSlider.addEventListener('input', updateTrackLengthDisplay);
-            updateTrackLengthDisplay(); // Set initial value on load
-            // --- END NEW ---
-
-            // Reset button
-            dom.resetSimBtn.addEventListener('click', resetSimulation);
-            
-            // NEW: Catch up button
-            dom.catchUpBtn.addEventListener('click', startCatchUp);
-
-            // TLE Fetch buttons
-            dom.fetchIssBtn.addEventListener('click', loadIssTle);
-            dom.fetchUkubeBtn.addEventListener('click', loadUkubeTle);
-            dom.fetchTiangongBtn.addEventListener('click', loadTiangongTle); 
-            dom.fetchMtgi1Btn.addEventListener('click', loadMtgi1Tle); 
-            dom.fetchQzs1rBtn.addEventListener('click', loadQzs1rTle);
-            dom.fetchArktikam2Btn.addEventListener('click', loadArktikam2Tle);
-
-            // Satellite control listeners
-            dom.sat.tle1.addEventListener('input', () => parseTleAndUpdateUI(0));
-            dom.sat.tle2.addEventListener('input', () => parseTleAndUpdateUI(0));
-            
-            // Ground track toggle
-            dom.sat.track.addEventListener('change', () => {
-                if (!dom.sat.track.checked) {
-                    groundTracks[0] = []; // Clear track on toggle off
-                    d3.select(`#track-0`).datum({ type: "LineString", coordinates: [] }).attr('d', path);
-                }
-            });
+        // --- Track Length Slider ---
+        function updateTrackLengthDisplay() {
+            const days = dom.trackLengthSlider.value;
+            dom.trackLengthValue.textContent = `${days} day${days == 1 ? '' : 's'}`;
         }
+        dom.trackLengthSlider.addEventListener('input', updateTrackLengthDisplay);
+        updateTrackLengthDisplay(); // Set initial value
+
+        // --- Control Buttons ---
+        dom.resetSimBtn.addEventListener('click', resetSimulation);
+        dom.catchUpBtn.addEventListener('click', startCatchUp);
         
-        // NEW: Catch Up Function
-        function startCatchUp() {
-            // Check if sim time is in the past
-            if (currentSimDate.getTime() < new Date().getTime()) {
-                isCatchingUp = true;
+        // --- TLE Fetch Buttons ---
+        dom.fetchIssBtn.addEventListener('click', loadIssTle);
+        dom.fetchUkubeBtn.addEventListener('click', loadUkubeTle);
+        dom.fetchTiangongBtn.addEventListener('click', loadTiangongTle); 
+        dom.fetchMtgi1Btn.addEventListener('click', loadMtgi1Tle); 
+        dom.fetchQzs1rBtn.addEventListener('click', loadQzs1rTle);
+        dom.fetchArktikam2Btn.addEventListener('click', loadArktikam2Tle);
+
+        // --- TLE Text Input Listeners ---
+        // Re-parse TLE and update data on any change
+        dom.sat.tle1.addEventListener('input', () => parseTleAndUpdateUI(0));
+        dom.sat.tle2.addEventListener('input', () => parseTleAndUpdateUI(0));
+        
+        // --- Ground Track Toggle ---
+        dom.sat.track.addEventListener('change', () => {
+            if (!dom.sat.track.checked) {
+                groundTracks[0] = []; // Clear track array
+                // Update D3 path to be empty
+                d3.select(`#track-0`).datum({ type: "LineString", coordinates: [] }).attr('d', path);
+            }
+        });
+    }
+    
+    /**
+     * Starts the "Catch up" mode.
+     * Sets speed to max and disables controls until sim time equals real time.
+     */
+    function startCatchUp() {
+        // Only start if sim time is in the past
+        if (currentSimDate.getTime() < new Date().getTime()) {
+            isCatchingUp = true;
+            
+            // Set speed to max
+            const newSpeed = 5000;
+            dom.speedSlider.value = newSpeed;
+            dom.speedSliderMain.value = newSpeed;
+            const text = `x${newSpeed}`;
+            dom.speedValue.textContent = text;
+            dom.speedValueMain.textContent = text;
+
+            // Disable controls to prevent interference
+            dom.catchUpBtn.disabled = true;
+            dom.speedSlider.disabled = true;
+            dom.speedSliderMain.disabled = true;
+        }
+    }
+
+    /**
+     * Parses the TLE text from the input boxes and updates the UI display.
+     * @param {number} index - The satellite index (always 0 in this app).
+     */
+    function parseTleAndUpdateUI(index) {
+        const sat = dom.sat;
+        const tle1 = sat.tle1.value;
+        const tle2 = sat.tle2.value;
+
+        try {
+            // Use satellite.js to parse the TLE
+            const satrec = satellite.twoline2satrec(tle1, tle2);
+            
+            // Store the parsed record
+            satelliteConfigs[index].satrec = satrec;
+
+            // Clear any previous warnings
+            sat.warning.className = 'warning'; 
+            sat.warning.textContent = '';
+            
+            // Calculate true (osculating) apogee and perigee
+            const { perigeeAltitude, apogeeAltitude } = getOsculatingApogeePerigee(satrec);
+            
+            // Check for re-entry or high drag
+            const perigee_alt_km = perigeeAltitude;
+            if (perigee_alt_km < 80) {
+                sat.warning.classList.add('red'); sat.warning.textContent = 'WARNING: Atmospheric re-entry!';
+            } else if (perigee_alt_km < 250) {
+                sat.warning.classList.add('amber'); sat.warning.textContent = 'CAUTION: High atmospheric drag.';
+            }
+
+            // Update UI display with new data
+            // satrec.no is in radians per *minute*
+            sat.val.period.textContent = `${(2 * Math.PI / satrec.no).toFixed(2)} min`;
+            sat.val.perigee.textContent = `${perigeeAltitude.toFixed(0)} km`;
+            sat.val.apogee.textContent = `${apogeeAltitude.toFixed(0)} km`;
+            sat.val.inc.textContent = `${(satrec.inclo * RAD_TO_DEG).toFixed(2)}°`;
+            sat.val.ecc.textContent = `${satrec.ecco.toFixed(5)}`;
+
+        } catch(err) {
+            // Handle TLE parsing errors
+            satelliteConfigs[index].satrec = null; // Invalidate the satrec
+            sat.warning.className = 'warning red';
+            sat.warning.textContent = 'ERROR: Invalid TLE data.';
+            
+            // Reset UI data
+            sat.val.period.textContent = 'N/A';
+            sat.val.perigee.textContent = 'N/A';
+            sat.val.apogee.textContent = 'N/A';
+            sat.val.inc.textContent = 'N/A';
+            sat.val.ecc.textContent = 'N/A';
+        }
+    }
+
+    /**
+     * Initializes the D3.js map, projection, and SVG layers.
+     */
+    function initMap() {
+        svg = d3.select("#map-svg");
+
+        // Set up an Equirectangular projection (flat map)
+        projection = d3.geoEquirectangular().translate([0, 0]).scale(1);
+        path = d3.geoPath(projection); // Path generator for the projection
+
+        // Create SVG <g> groups for different layers
+        // Order matters: bottom layers are drawn first.
+        svg.append("g").attr("id", "graticule-layer");
+        svg.append("g").attr("id", "coastline-layer"); 
+        svg.append("g").attr("id", "shadow-layer");    
+        svg.append("g").attr("id", "sun-layer");       
+        svg.append("g").attr("id", "moon-layer"); 
+        svg.append("g").attr("id", "track-layer");
+        svg.append("g").attr("id", "satellite-layer");
+
+        // Draw graticule (lat/lon grid)
+        graticule = d3.geoGraticule();
+        svg.select("#graticule-layer").append("path")
+            .datum(graticule)
+            .attr("class", "graticule")
+            .attr("d", path);
+
+        // Load and draw world map coastline data
+        d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
+            svg.select("#coastline-layer").append("path") 
+                .datum(topojson.feature(world, world.objects.land)) 
+                .attr("class", "coastline") 
+                .attr("d", path);
+            onWindowResize(); // Fit map to screen after data is loaded
+        });
+
+        // Add paths for shadow/terminator circles
+        svg.select("#shadow-layer").append("path").attr("id", "civil-twilight-zone").attr("class", "shadow-zone");
+        svg.select("#shadow-layer").append("path").attr("id", "nautical-twilight-zone").attr("class", "shadow-zone");
+        svg.select("#shadow-layer").append("path").attr("id", "astronomical-twilight-zone").attr("class", "shadow-zone");
+        svg.select("#shadow-layer").append("path").attr("id", "night-zone").attr("class", "shadow-zone");
+
+        // Add <circle> for the Sun marker
+        svg.select("#sun-layer").append("circle")
+            .attr("id", "sun-marker")
+            .attr("r", 7)
+            .attr("class", "sun-marker");
+
+        // Add <g> group for the Moon marker (base circle + lit path)
+        const moonMarker = svg.select("#moon-layer").append("g")
+            .attr("id", "moon-marker")
+            .style("display", "none");
+        
+        moonMarker.append("circle")
+            .attr("r", 6)
+            .attr("class", "moon-dark-side");
+        
+        moonMarker.append("path")
+            .attr("id", "moon-lit-side")
+            .attr("class", "moon-lit-side");
+
+        // Add <path> for the satellite's ground track
+        svg.select("#track-layer").append("path").attr("id", "track-0").attr("class", "ground-track");
+
+        // Add <circle> for the satellite marker
+        svg.select("#satellite-layer").selectAll(".satellite")
+            .data([0]) // Only one satellite
+            .enter().append("circle")
+            .attr("id", "sat-marker-0")
+            .attr("class", "satellite")
+            .attr("r", 5)
+            .style("fill", "#ed1248");
+        
+        onWindowResize(); // Initial resize to fit screen
+    }
+
+    /**
+     * Handles window resize events to keep the map scaled correctly.
+     */
+    function onWindowResize() {
+        const w = dom.mapContainer.clientWidth;
+        const h = dom.mapContainer.clientHeight;
+        
+        svg.attr("width", w).attr("height", h);
+        
+        // Update projection scale and center
+        projection.scale(w / (2 * Math.PI) * 0.95).translate([w / 2, h / 2]);
+        
+        // Redraw all geodata
+        svg.select(".coastline").attr("d", path); 
+        svg.select(".graticule").attr("d", path);
+        drawMapElements(); // Redraw dynamic elements (sat, sun, moon, shadows)
+    }
+
+    /**
+     * Resets the simulation to the user-defined epoch time.
+     */
+    function resetSimulation() {
+        epochDate = new Date(dom.epochInput.value);
+        if (isNaN(epochDate)) { // Fallback if date is invalid
+            epochDate = new Date();
+        }
+        currentSimDate = new Date(epochDate.getTime()); // Set sim time to epoch
+        elapsedSimSeconds = 0;
+
+        parseTleAndUpdateUI(0); // Re-parse TLE data for the epoch
+        
+        // Clear ground track data
+        groundTracks = [[]];
+        svg.select(".ground-track")
+           .datum({ type: "LineString", coordinates: [] })
+           .attr("d", path);
+        
+        lastTimestamp = 0; // Reset animation frame timestamp
+        
+        // Cancel "Catch up" mode if it was active
+        isCatchingUp = false;
+        dom.catchUpBtn.disabled = false;
+        dom.speedSlider.disabled = false;
+        dom.speedSliderMain.disabled = false;
+    }
+
+    /**
+     * The main simulation loop, called by requestAnimationFrame.
+     * @param {number} timestamp - The current time (in ms) provided by the browser.
+     */
+    function simulationLoop(timestamp) {
+        // 1. Calculate Delta Time
+        if (lastTimestamp === 0) lastTimestamp = timestamp;
+        const deltaRealTime = (timestamp - lastTimestamp) / 1000.0; // Seconds elapsed in real life
+        lastTimestamp = timestamp;
+
+        // 2. Advance Simulation Time
+        const speed = parseFloat(dom.speedSlider.value);
+        const deltaSimTime = deltaRealTime * speed; // Seconds to advance simulation
+        
+        if (speed > 0) {
+            currentSimDate.setMilliseconds(currentSimDate.getMilliseconds() + deltaSimTime * 1000);
+        }
+        elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
+        
+        // 3. Update UI Time Display
+        const timeString = currentSimDate.toUTCString().replace("GMT", "");
+        dom.simTimeDisplay.textContent = timeString;
+        dom.simTimeDisplayMain.textContent = timeString;
+        
+        // 4. Calculate Celestial and Satellite Positions
+        const currentGST = satellite.gstime(currentSimDate); // Get current Greenwich Mean Sidereal Time
+        sunPos = getSunPosition(currentSimDate, currentGST);
+        moonData = getMoonData(currentSimDate, currentGST);
+
+        // 5. Propagate Satellite
+        const satrec = satelliteConfigs[0].satrec;
+        const state = propagateSatellite(satrec, currentSimDate, currentGST);
+        propagatedStates[0] = state; 
+
+        // 6. Update Satellite Altitude Display
+        if (state.alt_km !== undefined) {
+            dom.sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
+        } else {
+            dom.sat.val.alt.textContent = 'N/A';
+        }
+
+        // 7. Draw All Dynamic Map Elements
+        drawMapElements();
+
+        // 8. Check for "Catch up" Mode Completion
+        if (isCatchingUp) {
+            const now_ms = new Date().getTime(); // Get current real time
+            if (currentSimDate.getTime() >= now_ms) {
+                // We've caught up!
+                isCatchingUp = false;
                 
-                // Set speed to max
-                const newSpeed = 5000;
+                // Set speed to 1 (real-time)
+                const newSpeed = 1;
                 dom.speedSlider.value = newSpeed;
                 dom.speedSliderMain.value = newSpeed;
                 const text = `x${newSpeed}`;
                 dom.speedValue.textContent = text;
                 dom.speedValueMain.textContent = text;
 
-                // Disable controls to prevent interference
-                dom.catchUpBtn.disabled = true;
-                dom.speedSlider.disabled = true;
-                dom.speedSliderMain.disabled = true;
-            }
-        }
-
-        function parseTleAndUpdateUI(index) {
-            const sat = dom.sat;
-            const tle1 = sat.tle1.value;
-            const tle2 = sat.tle2.value;
-
-            try {
-                const satrec = satellite.twoline2satrec(tle1, tle2);
-                
-                satelliteConfigs[index].satrec = satrec;
-
-                sat.warning.className = 'warning'; 
-                sat.warning.textContent = '';
-                
-                // --- NEW: Osculating Apogee/Perigee Calculation ---
-                // This replaces the old mean calculation block
-                const { perigeeAltitude, apogeeAltitude } = getOsculatingApogeePerigee(satrec);
-                // --- End New Calculation ---
-                
-                const perigee_alt_km = perigeeAltitude; // Used for warning check
-                
-                if (perigee_alt_km < 80) {
-                    sat.warning.classList.add('red'); sat.warning.textContent = 'WARNING: Atmospheric re-entry!';
-                } else if (perigee_alt_km < 250) {
-                    sat.warning.classList.add('amber'); sat.warning.textContent = 'CAUTION: High atmospheric drag.';
-                }
-
-                // satrec.no is in radians per minute
-                sat.val.period.textContent = `${(2 * Math.PI / satrec.no).toFixed(2)} min`;
-                
-                // Use the calculated altitudes
-                sat.val.perigee.textContent = `${perigeeAltitude.toFixed(0)} km`;
-                sat.val.apogee.textContent = `${apogeeAltitude.toFixed(0)} km`;
-                
-                sat.val.inc.textContent = `${(satrec.inclo * RAD_TO_DEG).toFixed(2)}°`;
-                sat.val.ecc.textContent = `${satrec.ecco.toFixed(5)}`; // NEW
-
-            } catch(err) {
-                satelliteConfigs[index].satrec = null;
-                sat.warning.className = 'warning red';
-                sat.warning.textContent = 'ERROR: Invalid TLE data.';
-                
-                sat.val.period.textContent = 'N/A';
-                sat.val.perigee.textContent = 'N/A';
-                sat.val.apogee.textContent = 'N/A';
-                sat.val.inc.textContent = 'N/A';
-                sat.val.ecc.textContent = 'N/A'; // NEW
-            }
-        }
-
-        // --- Map Initialization ---
-        function initMap() {
-            svg = d3.select("#map-svg");
-
-            projection = d3.geoEquirectangular().translate([0, 0]).scale(1);
-            path = d3.geoPath(projection);
-
-            // Create layers (Order matters!)
-            svg.append("g").attr("id", "graticule-layer");
-            svg.append("g").attr("id", "coastline-layer"); 
-            svg.append("g").attr("id", "shadow-layer");    
-            svg.append("g").attr("id", "sun-layer");       
-            svg.append("g").attr("id", "moon-layer"); // NEW: Moon layer
-            svg.append("g").attr("id", "track-layer");
-            svg.append("g").attr("id", "satellite-layer");
-
-            // Draw graticule
-            graticule = d3.geoGraticule();
-            svg.select("#graticule-layer").append("path")
-                .datum(graticule)
-                .attr("class", "graticule")
-                .attr("d", path);
-
-            // Load and draw world map (coastlines)
-            d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(world => {
-                svg.select("#coastline-layer").append("path") 
-                    .datum(topojson.feature(world, world.objects.land)) 
-                    .attr("class", "coastline") 
-                    .attr("d", path);
-                onWindowResize(); // Fit map to screen
-            });
-
-            // Add shadow paths
-            svg.select("#shadow-layer").append("path").attr("id", "civil-twilight-zone").attr("class", "shadow-zone");
-            svg.select("#shadow-layer").append("path").attr("id", "nautical-twilight-zone").attr("class", "shadow-zone");
-            svg.select("#shadow-layer").append("path").attr("id", "astronomical-twilight-zone").attr("class", "shadow-zone");
-            svg.select("#shadow-layer").append("path").attr("id", "night-zone").attr("class", "shadow-zone");
-
-            // Add Sun marker
-            svg.select("#sun-layer").append("circle")
-                .attr("id", "sun-marker")
-                .attr("r", 7)
-                .attr("class", "sun-marker");
-
-            // NEW: Add Moon marker group
-            const moonMarker = svg.select("#moon-layer").append("g")
-                .attr("id", "moon-marker")
-                .style("display", "none");
-            
-            // Add Moon's dark base
-            moonMarker.append("circle")
-                .attr("r", 6)
-                .attr("class", "moon-dark-side");
-            
-            // Add Moon's lit path (to be drawn later)
-            moonMarker.append("path")
-                .attr("id", "moon-lit-side")
-                .attr("class", "moon-lit-side");
-            // --- END NEW ---
-
-            // Add ground track path
-            svg.select("#track-layer").append("path").attr("id", "track-0").attr("class", "ground-track");
-
-            // Add satellite marker
-            svg.select("#satellite-layer").selectAll(".satellite")
-                .data([0]) // Only one satellite
-                .enter().append("circle")
-                .attr("id", "sat-marker-0")
-                .attr("class", "satellite")
-                .attr("r", 5)
-                .style("fill", "#ed1248");
-            
-            onWindowResize();
-        }
-
-        // --- Map Sizing ---
-        function onWindowResize() {
-            const w = dom.mapContainer.clientWidth;
-            const h = dom.mapContainer.clientHeight;
-            
-            svg.attr("width", w).attr("height", h);
-            projection.scale(w / (2 * Math.PI) * 0.95).translate([w / 2, h / 2]);
-            
-            // Redraw all map elements
-            svg.select(".coastline").attr("d", path); 
-            svg.select(".graticule").attr("d", path);
-            drawMapElements(); // Redraws sat, track, sun, and shadows
-        }
-
-        // --- Simulation ---
-        function resetSimulation() {
-            epochDate = new Date(dom.epochInput.value);
-            if (isNaN(epochDate)) {
-                epochDate = new Date(); // Fallback
-            }
-            currentSimDate = new Date(epochDate.getTime());
-            elapsedSimSeconds = 0;
-
-            parseTleAndUpdateUI(0); 
-            
-            groundTracks = [[]];
-            svg.select(".ground-track")
-               .datum({ type: "LineString", coordinates: [] })
-               .attr("d", path);
-            
-            lastTimestamp = 0;
-            
-            // NEW: Cancel catch-up mode if active
-            isCatchingUp = false;
-            dom.catchUpBtn.disabled = false;
-            dom.speedSlider.disabled = false;
-            dom.speedSliderMain.disabled = false;
-        }
-
-        function simulationLoop(timestamp) {
-            if (lastTimestamp === 0) lastTimestamp = timestamp;
-            const deltaRealTime = (timestamp - lastTimestamp) / 1000.0;
-            lastTimestamp = timestamp;
-
-            const speed = parseFloat(dom.speedSlider.value); // Read from one, both are in sync
-            const deltaSimTime = deltaRealTime * speed;
-            
-            if (speed > 0) {
-                currentSimDate.setMilliseconds(currentSimDate.getMilliseconds() + deltaSimTime * 1000);
-            }
-            
-            elapsedSimSeconds = (currentSimDate.getTime() - epochDate.getTime()) / 1000.0;
-            
-            // Update both time displays
-            const timeString = currentSimDate.toUTCString().replace("GMT", "");
-            dom.simTimeDisplay.textContent = timeString;
-            dom.simTimeDisplayMain.textContent = timeString;
-            
-            // Calculate Sun and Satellite Positions
-            const currentGST = satellite.gstime(currentSimDate);
-            
-            sunPos = getSunPosition(currentSimDate, currentGST);
-            moonData = getMoonData(currentSimDate, currentGST); // NEW
-
-            // Calculate Satellite position
-            const sat = dom.sat;
-            const i = 0;
-            const satrec = satelliteConfigs[i].satrec;
-            
-            const state = propagateSatellite(satrec, currentSimDate, currentGST);
-            propagatedStates[i] = state; 
-
-            if (state.alt_km !== undefined) {
-                sat.val.alt.textContent = `${state.alt_km.toFixed(0)} km`;
-            } else {
-                sat.val.alt.textContent = 'N/A';
-            }
-
-            // Draw all dynamic map elements
-            drawMapElements();
-
-            // Check for Catch-up Mode
-            if (isCatchingUp) {
-                const now_ms = new Date().getTime(); // Get current real time
-                if (currentSimDate.getTime() >= now_ms) {
-                    // We've caught up!
-                    isCatchingUp = false;
-                    
-                    // Set speed to 1 (real-time)
-                    const newSpeed = 1;
-                    dom.speedSlider.value = newSpeed;
-                    dom.speedSliderMain.value = newSpeed;
-                    const text = `x${newSpeed}`;
-                    dom.speedValue.textContent = text;
-                    dom.speedValueMain.textContent = text;
-
-                    // Re-enable controls
-                    dom.catchUpBtn.disabled = false;
-                    dom.speedSlider.disabled = false;
-                    dom.speedSliderMain.disabled = false;
-                }
-            }
-            
-            requestAnimationFrame(simulationLoop);
-        }
-
-        // --- UPDATED: drawMapElements ---
-        function drawMapElements() {
-            // --- Draw Satellite and Track ---
-            const i = 0;
-            const state = propagatedStates[i];
-            
-            if (state.latLon) {
-                const [lon, lat] = state.latLon;
-                const coords = projection([lon, lat]);
-                
-                svg.select(`#sat-marker-${i}`)
-                    .attr("cx", coords[0])
-                    .attr("cy", coords[1])
-                    .style("display", "block");
-                    
-                if (dom.sat.track.checked && state.period) {
-                    // UPDATED: Filter track based on slider value (in days)
-                    const trackDays = parseFloat(dom.trackLengthSlider.value);
-                    const trackSeconds = trackDays * 24 * 60 * 60; // Convert days to seconds
-                    const trackCutoffTime = elapsedSimSeconds - trackSeconds;
-                    
-                    groundTracks[i] = groundTracks[i].filter(point => point[2] >= trackCutoffTime);
-                    // END UPDATE
-                    
-                    groundTracks[i].push([lon, lat, elapsedSimSeconds]);
-                    
-                    const lineCoords = groundTracks[i].map(p => [p[0], p[1]]);
-                    const geoJsonLine = { type: "LineString", coordinates: lineCoords };
-                    
-                    svg.select(`#track-${i}`).datum(geoJsonLine).attr("d", path);
-                }
-            } else {
-                svg.select(`#sat-marker-${i}`).style("display", "none");
-            }
-
-            // --- Draw Sun and Shadows ---
-            if (sunPos && sunPos.latitude !== undefined) {
-                // Draw Sun Marker
-                const sunCoords = projection([sunPos.longitude, sunPos.latitude]);
-                svg.select("#sun-marker")
-                    .attr("cx", sunCoords[0])
-                    .attr("cy", sunCoords[1])
-                    .style("display", "block");
-                    
-                // Draw Shadows
-                const antipode = [sunPos.longitude + 180, -sunPos.latitude];
-                
-                // Update centers and redraw paths
-                svg.select("#civil-twilight-zone").datum(civilCircle.center(antipode)).attr("d", path);
-                svg.select("#nautical-twilight-zone").datum(nauticalCircle.center(antipode)).attr("d", path);
-                svg.select("#astronomical-twilight-zone").datum(astronomicalCircle.center(antipode)).attr("d", path);
-                svg.select("#night-zone").datum(nightCircle.center(antipode)).attr("d", path);
-            }
-
-            // --- NEW: Draw Moon ---
-            if (moonData && moonData.latitude !== undefined) {
-                const moonCoords = projection([moonData.longitude, moonData.latitude]);
-                const moonMarker = svg.select("#moon-marker");
-                
-                // Move the moon marker group
-                moonMarker
-                    .attr("transform", `translate(${moonCoords[0]}, ${moonCoords[1]})`)
-                    .style("display", "block");
-                
-                // Calculate and draw the phase path
-                const r = 6; // Moon radius
-                const phase = moonData.phase; // 0 to 1
-                const phaseAngle = phase * 2 * Math.PI;
-                
-                // x_bulge is the x-radius of the terminator ellipse
-                // -r (crescent) to +r (gibbous)
-                const x_bulge = -r * Math.cos(phaseAngle);
-                
-                let d; // This will hold the SVG path data
-                
-                if (phase <= 0.5) { 
-                    // WAXING (New -> First Q -> Full)
-                    // The right-side arc (0 0 1) is always lit
-                    // The terminator arc (0 0 sweep) goes from left to right
-                    const sweep = (x_bulge < 0) ? 0 : 1; 
-                    d = `M 0,-${r} A ${r},${r} 0 0 1 0,${r} A ${Math.abs(x_bulge)},${r} 0 0 ${sweep} 0,-${r} Z`;
-                } else { 
-                    // WANING (Full -> Third Q -> New)
-                    // The left-side arc (0 0 0) is always lit
-                    // The terminator arc (0 0 sweep) goes from right to left
-                    const sweep = (x_bulge > 0) ? 0 : 1;
-                    d = `M 0,-${r} A ${r},${r} 0 0 0 0,${r} A ${Math.abs(x_bulge)},${r} 0 0 ${sweep} 0,-${r} Z`;
-                }
-                
-                // Apply the calculated path to the lit side
-                moonMarker.select("#moon-lit-side").attr("d", d);
-            }
-        }
-
-
-        // --- Orbital Mechanics ---
-
-        /**
-         * Calculates the osculating (instantaneous) apogee and perigee by
-         * simulating one full orbit from the TLE epoch.
-         * @param {object} satrec - The satellite record object from satellite.js
-         * @returns {object} { perigeeAltitude: number, apogeeAltitude: number }
-         */
-        function getOsculatingApogeePerigee(satrec) {
-            if (!satrec) {
-                return { perigeeAltitude: 0, apogeeAltitude: 0 };
-            }
-
-            try {
-                // 1. Get orbital period in minutes
-                const periodMin = (2 * Math.PI / satrec.no);
-                
-                // 2. Get TLE epoch as a Date object
-                const year = satrec.epochyr < 57 ? satrec.epochyr + 2000 : satrec.epochyr + 1900;
-                const day = satrec.epochdays;
-                const epochDate = new Date(Date.UTC(year, 0, 1));
-                // Adjust for the fractional day
-                epochDate.setMilliseconds(epochDate.getMilliseconds() + (day - 1) * 86400 * 1000);
-
-                // 3. Simulation parameters
-                const numSteps = 360;
-                const stepMin = periodMin / numSteps;
-                const stepMs = stepMin * 60 * 1000; // Step time in milliseconds
-
-                let minAlt_km = Infinity;
-                let maxAlt_km = -Infinity;
-
-                // 4. Simulate one orbit
-                for (let i = 0; i <= numSteps; i++) {
-                    const currentDate = new Date(epochDate.getTime() + i * stepMs);
-
-                    // Propagate satellite to the current time
-                    const propResult = satellite.propagate(satrec, currentDate);
-                    if (!propResult || !propResult.position) {
-                        continue; // Skip if propagation fails
-                    }
-                    
-                    const eciPos = propResult.position;
-                    
-                    // Get GMST for this time
-                    const gmst = satellite.gstime(currentDate);
-                    
-                    // Convert ECI to Geodetic (lat, lon, height)
-                    const geodetic = satellite.eciToGeodetic(eciPos, gmst);
-                    
-                    const alt_km = geodetic.height;
-                    
-                    // 5. Find min and max altitude
-                    if (alt_km < minAlt_km) minAlt_km = alt_km;
-                    if (alt_km > maxAlt_km) maxAlt_km = alt_km;
-                }
-
-                return { perigeeAltitude: minAlt_km, apogeeAltitude: maxAlt_km };
-
-            } catch (err) {
-                console.error("Error calculating osculating orbit:", err);
-                // Fallback to mean calculation if simulation fails
-                const meanMotionRadPerSec = satrec.no / 60.0;
-                const semiMajorAxis = Math.cbrt(GM_KM3_S2 / (meanMotionRadPerSec * meanMotionRadPerSec)); 
-                const perigeeAltitude = (semiMajorAxis * (1.0 - satrec.ecco)) - EARTH_RADIUS_KM;
-                const apogeeAltitude = (semiMajorAxis * (1.0 + satrec.ecco)) - EARTH_RADIUS_KM;
-                return { perigeeAltitude, apogeeAltitude };
+                // Re-enable controls
+                dom.catchUpBtn.disabled = false;
+                dom.speedSlider.disabled = false;
+                dom.speedSliderMain.disabled = false;
             }
         }
         
-        function propagateSatellite(satrec, currentDate, gst) {
-            if (!satrec) {
-                return {}; 
+        // 9. Request the next animation frame
+        requestAnimationFrame(simulationLoop);
+    }
+
+    /**
+     * Draws all dynamic elements on the SVG map (satellite, track, sun, moon, shadows).
+     */
+    function drawMapElements() {
+        // --- Draw Satellite and Track ---
+        const i = 0; // Satellite index
+        const state = propagatedStates[i];
+        
+        if (state.latLon) {
+            const [lon, lat] = state.latLon;
+            const coords = projection([lon, lat]); // Convert [lon, lat] to [x, y]
+            
+            // Move the satellite <circle>
+            svg.select(`#sat-marker-${i}`)
+                .attr("cx", coords[0])
+                .attr("cy", coords[1])
+                .style("display", "block");
+                
+            // Update the ground track if enabled
+            if (dom.sat.track.checked && state.period) {
+                // Filter track based on slider value (in days)
+                const trackDays = parseFloat(dom.trackLengthSlider.value);
+                const trackSeconds = trackDays * 24 * 60 * 60;
+                const trackCutoffTime = elapsedSimSeconds - trackSeconds;
+                
+                // Remove points from the track array that are too old
+                groundTracks[i] = groundTracks[i].filter(point => point[2] >= trackCutoffTime);
+                
+                // Add the new point
+                groundTracks[i].push([lon, lat, elapsedSimSeconds]);
+                
+                // Redraw the track <path>
+                const lineCoords = groundTracks[i].map(p => [p[0], p[1]]);
+                const geoJsonLine = { type: "LineString", coordinates: lineCoords };
+                svg.select(`#track-${i}`).datum(geoJsonLine).attr("d", path);
+            }
+        } else {
+            // Hide satellite if its state is invalid
+            svg.select(`#sat-marker-${i}`).style("display", "none");
+        }
+
+        // --- Draw Sun and Shadows ---
+        if (sunPos && sunPos.latitude !== undefined) {
+            // Move the sun <circle>
+            const sunCoords = projection([sunPos.longitude, sunPos.latitude]);
+            svg.select("#sun-marker")
+                .attr("cx", sunCoords[0])
+                .attr("cy", sunCoords[1])
+                .style("display", "block");
+                
+            // Calculate the antipode (point opposite the sun) for shadows
+            const antipode = [sunPos.longitude + 180, -sunPos.latitude];
+            
+            // Redraw all shadow/terminator circles centered on the antipode
+            svg.select("#civil-twilight-zone").datum(civilCircle.center(antipode)).attr("d", path);
+            svg.select("#nautical-twilight-zone").datum(nauticalCircle.center(antipode)).attr("d", path);
+            svg.select("#astronomical-twilight-zone").datum(astronomicalCircle.center(antipode)).attr("d", path);
+            svg.select("#night-zone").datum(nightCircle.center(antipode)).attr("d", path);
+        }
+
+        // --- Draw Moon ---
+        if (moonData && moonData.latitude !== undefined) {
+            const moonCoords = projection([moonData.longitude, moonData.latitude]);
+            const moonMarker = svg.select("#moon-marker");
+            
+            // Move the entire moon <g> group
+            moonMarker
+                .attr("transform", `translate(${moonCoords[0]}, ${moonCoords[1]})`)
+                .style("display", "block");
+            
+            // --- Calculate and draw the phase path ---
+            const r = 6; // Moon radius
+            const phase = moonData.phase; // 0 (New) to 1 (New)
+            const phaseAngle = phase * 2 * Math.PI;
+            
+            // x_bulge is the x-radius of the terminator ellipse
+            // -r (crescent) to +r (gibbous)
+            const x_bulge = -r * Math.cos(phaseAngle);
+            
+            let d; // This will hold the SVG path data
+            
+            if (phase <= 0.5) { 
+                // WAXING (New -> First Q -> Full)
+                // The right-side arc is always lit.
+                const sweep = (x_bulge < 0) ? 0 : 1; // Arc sweep flag
+                // Path: Move to top, draw right arc, draw terminator arc
+                d = `M 0,-${r} A ${r},${r} 0 0 1 0,${r} A ${Math.abs(x_bulge)},${r} 0 0 ${sweep} 0,-${r} Z`;
+            } else { 
+                // WANING (Full -> Third Q -> New)
+                // The left-side arc is always lit.
+                const sweep = (x_bulge > 0) ? 0 : 1; // Arc sweep flag
+                // Path: Move to top, draw left arc, draw terminator arc
+                d = `M 0,-${r} A ${r},${r} 0 0 0 0,${r} A ${Math.abs(x_bulge)},${r} 0 0 ${sweep} 0,-${r} Z`;
             }
             
-            const T_period_seconds = (2 * Math.PI / satrec.no) * 60.0;
+            // Apply the calculated path to the lit side <path> element
+            moonMarker.select("#moon-lit-side").attr("d", d);
+        }
+    }
 
-            try {
+
+    // --- Orbital Mechanics Functions ---
+
+    /**
+     * Calculates the osculating (instantaneous) apogee and perigee.
+     * Simulates one full orbit from the TLE epoch to find the true min/max altitude.
+     * This is computationally expensive and should only be run on TLE change, not in the main loop.
+     * @param {object} satrec - The satellite record object from satellite.js
+     * @returns {object} { perigeeAltitude: number, apogeeAltitude: number }
+     */
+    function getOsculatingApogeePerigee(satrec) {
+        if (!satrec) {
+            return { perigeeAltitude: 0, apogeeAltitude: 0 };
+        }
+
+        try {
+            // 1. Get orbital period in minutes
+            const periodMin = (2 * Math.PI / satrec.no);
+            
+            // 2. Get TLE epoch as a Date object
+            const year = satrec.epochyr < 57 ? satrec.epochyr + 2000 : satrec.epochyr + 1900;
+            const day = satrec.epochdays;
+            const epochDate = new Date(Date.UTC(year, 0, 1));
+            epochDate.setMilliseconds(epochDate.getMilliseconds() + (day - 1) * 86400 * 1000);
+
+            // 3. Simulation parameters
+            const numSteps = 360; // Sample at 360 points (1 per degree of anomaly)
+            const stepMin = periodMin / numSteps;
+            const stepMs = stepMin * 60 * 1000; // Step time in milliseconds
+
+            let minAlt_km = Infinity;
+            let maxAlt_km = -Infinity;
+
+            // 4. Simulate one full orbit
+            for (let i = 0; i <= numSteps; i++) {
+                const currentDate = new Date(epochDate.getTime() + i * stepMs);
+
+                // Propagate satellite to this time step
                 const propResult = satellite.propagate(satrec, currentDate);
-                
-                if (!propResult || !propResult.position) {
-                    return { period: T_period_seconds };
-                }
+                if (!propResult || !propResult.position) continue;
                 
                 const eciPos = propResult.position;
-                const geodetic = satellite.eciToGeodetic(eciPos, gst);
-                
-                const lat_rad = geodetic.latitude;
-                const lon_rad = geodetic.longitude;
+                const gmst = satellite.gstime(currentDate);
+                const geodetic = satellite.eciToGeodetic(eciPos, gmst);
                 const alt_km = geodetic.height;
-                                
-                return {
-                    eci: eciPos,
-                    latLon: [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG],
-                    period: T_period_seconds,
-                    alt_km: alt_km
-                };
-            } catch (err) {
-                console.warn("SGP4 Propagation Error:", err.message);
-                return { period: T_period_seconds };
+                
+                // 5. Find min and max altitude
+                if (alt_km < minAlt_km) minAlt_km = alt_km;
+                if (alt_km > maxAlt_km) maxAlt_km = alt_km;
             }
+
+            return { perigeeAltitude: minAlt_km, apogeeAltitude: maxAlt_km };
+
+        } catch (err) {
+            console.error("Error calculating osculating orbit:", err);
+            // Fallback to mean (less accurate) calculation if simulation fails
+            const meanMotionRadPerSec = satrec.no / 60.0;
+            const semiMajorAxis = Math.cbrt(GM_KM3_S2 / (meanMotionRadPerSec * meanMotionRadPerSec)); 
+            const perigeeAltitude = (semiMajorAxis * (1.0 - satrec.ecco)) - EARTH_RADIUS_KM;
+            const apogeeAltitude = (semiMajorAxis * (1.0 + satrec.ecco)) - EARTH_RADIUS_KM;
+            return { perigeeAltitude, apogeeAltitude };
+        }
+    }
+    
+    /**
+     * Propagates the satellite to a specific time.
+     * @param {object} satrec - The parsed satellite record.
+     * @param {Date} currentDate - The simulation time to propagate to.
+     * @param {number} gst - The Greenwich Mean Sidereal Time for the currentDate.
+     * @returns {object} The satellite's state (position, altitude, etc.).
+     */
+    function propagateSatellite(satrec, currentDate, gst) {
+        if (!satrec) {
+            return {}; // Return empty object if no TLE is loaded
         }
         
-        /**
-         * Calculates the sun's sub-solar point (latitude, longitude)
-         * @param {Date} date - The current simulation date object
-         * @param {number} gmst_rad - The current GMST in radians
-         * @returns {object} {latitude, longitude} in degrees
-         */
-        function getSunPosition(date, gmst_rad) {
-            const julianDate = (date.getTime() / 86400000) + 2440587.5;
-            const daysSince2000 = julianDate - 2451545.0;
+        // Calculate period (used in drawMapElements)
+        const T_period_seconds = (2 * Math.PI / satrec.no) * 60.0;
 
-            // Sun's mean longitude, in degrees
-            const meanLongitude_deg = (280.460 + 0.9856474 * daysSince2000) % 360;
-
-            // Sun's mean anomaly, in degrees
-            const meanAnomaly_deg = (357.528 + 0.9856003 * daysSince2000) % 360;
-            const meanAnomaly_rad = meanAnomaly_deg * DEG_TO_RAD;
-
-            // Ecliptic longitude, in degrees
-            const eclipticLongitude_deg = meanLongitude_deg + 1.915 * Math.sin(meanAnomaly_rad) + 0.020 * Math.sin(2 * meanAnomaly_rad);
-            const eclipticLongitude_rad = eclipticLongitude_deg * DEG_TO_RAD;
-
-            // Obliquity of the ecliptic, in degrees
-            const obliquity_deg = 23.439 - 0.0000004 * daysSince2000;
-            const obliquity_rad = obliquity_deg * DEG_TO_RAD;
-
-            // Right Ascension (RA)
-            const rightAscension_rad = Math.atan2(Math.cos(obliquity_rad) * Math.sin(eclipticLongitude_rad), Math.cos(eclipticLongitude_rad));
-
-            // Declination (Dec)
-            const declination_rad = Math.asin(Math.sin(obliquity_rad) * Math.sin(eclipticLongitude_rad));
-
-            // Sub-solar Latitude is the Declination
-            const lat_rad = declination_rad;
-
-            // Sub-solar Longitude is (RA - GMST)
-            // We need to normalize the longitude to the [-pi, pi] range
-            let lon_rad = rightAscension_rad - gmst_rad;
-
-            if (lon_rad > Math.PI) lon_rad -= 2 * Math.PI;
-            if (lon_rad < -Math.PI) lon_rad += 2 * Math.PI;
-
-            return {
-                latitude: lat_rad * RAD_TO_DEG,
-                longitude: lon_rad * RAD_TO_DEG
-            };
-        }
-
-        // --- NEW: Moon Position and Phase Calculation ---
-        /**
-         * Calculates the moon's phase and approximate sub-lunar point
-         * @param {Date} date - The current simulation date object
-         * @param {number} gmst_rad - The current GMST in radians
-         * @returns {object} {latitude, longitude, phase}
-         */
-        function getMoonData(date, gmst_rad) {
+        try {
+            // Propagate satellite to the current date
+            const propResult = satellite.propagate(satrec, currentDate);
             
-            // --- 1. Calculate Phase (0 to 1) ---
-            const current_ms = date.getTime();
-            const msSinceNewMoon = current_ms - KNOWN_NEW_MOON_MS;
-            const daysSinceNewMoon = msSinceNewMoon / (1000 * 60 * 60 * 24);
-            
-            let moonPhase = (daysSinceNewMoon / SYNODIC_PERIOD_DAYS) % 1;
-            if (moonPhase < 0) {
-                moonPhase += 1; // Handle dates before the known new moon
+            if (!propResult || !propResult.position) {
+                return { period: T_period_seconds }; // Return only period if prop fails
             }
-            // phase: 0 = New, 0.25 = First Q, 0.5 = Full, 0.75 = Third Q
-
-            // --- 2. Calculate Approximate Position ---
-            // This is a low-fi model based on the Sun's position logic
             
-            const julianDate = (date.getTime() / 86400000) + 2440587.5;
-            const daysSince2000 = julianDate - 2451545.0;
-
-            // Get Sun's ecliptic longitude (needed for moon's relative position)
-            const meanLongitude_deg = (280.460 + 0.9856474 * daysSince2000) % 360;
-            const meanAnomaly_deg = (357.528 + 0.9856003 * daysSince2000) % 360;
-            const meanAnomaly_rad = meanAnomaly_deg * DEG_TO_RAD;
-            const sunEclipticLongitude_deg = meanLongitude_deg + 1.915 * Math.sin(meanAnomaly_rad) + 0.020 * Math.sin(2 * meanAnomaly_rad);
-
-            // Calculate Moon's approximate ecliptic longitude
-            // Elongation (phase) is difference in longitude
-            const moonEclipticLongitude_deg = (sunEclipticLongitude_deg + (moonPhase * 360)) % 360;
-            const moonEclipticLongitude_rad = moonEclipticLongitude_deg * DEG_TO_RAD;
-
-            // Obliquity of the ecliptic (same as for sun)
-            const obliquity_deg = 23.439 - 0.0000004 * daysSince2000;
-            const obliquity_rad = obliquity_deg * DEG_TO_RAD;
-
-            // Convert Moon's ecliptic coords to equatorial (RA, Dec)
-            // (Assuming 0 ecliptic latitude for simplicity)
-            const rightAscension_rad = Math.atan2(Math.cos(obliquity_rad) * Math.sin(moonEclipticLongitude_rad), Math.cos(moonEclipticLongitude_rad));
-            const declination_rad = Math.asin(Math.sin(obliquity_rad) * Math.sin(moonEclipticLongitude_rad));
-
-            // Sub-lunar Latitude is the Declination
-            const lat_rad = declination_rad;
-
-            // Sub-lunar Longitude is (RA - GMST)
-            let lon_rad = rightAscension_rad - gmst_rad;
-
-            if (lon_rad > Math.PI) lon_rad -= 2 * Math.PI;
-            if (lon_rad < -Math.PI) lon_rad += 2 * Math.PI;
-
+            // Get ECI position
+            const eciPos = propResult.position;
+            // Convert ECI to Geodetic (latitude, longitude, height)
+            const geodetic = satellite.eciToGeodetic(eciPos, gst);
+            
+            const lat_rad = geodetic.latitude;
+            const lon_rad = geodetic.longitude;
+            const alt_km = geodetic.height;
+                            
             return {
-                latitude: lat_rad * RAD_TO_DEG,
-                longitude: lon_rad * RAD_TO_DEG,
-                phase: moonPhase
+                eci: eciPos,
+                latLon: [lon_rad * RAD_TO_DEG, lat_rad * RAD_TO_DEG], // [lon, lat]
+                period: T_period_seconds,
+                alt_km: alt_km
             };
+        } catch (err) {
+            console.warn("SGP4 Propagation Error:", err.message);
+            return { period: T_period_seconds }; // Return only period on error
         }
+    }
+    
+    /**
+     * Calculates the sun's sub-solar point (latitude, longitude).
+     * @param {Date} date - The current simulation date object.
+     * @param {number} gmst_rad - The current GMST in radians.
+     * @returns {object} {latitude, longitude} in degrees.
+     */
+    function getSunPosition(date, gmst_rad) {
+        // --- 1. Calculate Astronomical Parameters ---
+        const julianDate = (date.getTime() / 86400000) + 2440587.5;
+        const daysSince2000 = julianDate - 2451545.0;
 
+        // Sun's mean longitude
+        const meanLongitude_deg = (280.460 + 0.9856474 * daysSince2000) % 360;
+        // Sun's mean anomaly
+        const meanAnomaly_deg = (357.528 + 0.9856003 * daysSince2000) % 360;
+        const meanAnomaly_rad = meanAnomaly_deg * DEG_TO_RAD;
+        // Ecliptic longitude
+        const eclipticLongitude_deg = meanLongitude_deg + 1.915 * Math.sin(meanAnomaly_rad) + 0.020 * Math.sin(2 * meanAnomaly_rad);
+        const eclipticLongitude_rad = eclipticLongitude_deg * DEG_TO_RAD;
+        // Obliquity of the ecliptic
+        const obliquity_deg = 23.439 - 0.0000004 * daysSince2000;
+        const obliquity_rad = obliquity_deg * DEG_TO_RAD;
 
-        // --- Start Application ---
-        init();
+        // --- 2. Convert to ECI (RA, Dec) ---
+        // Right Ascension (RA)
+        const rightAscension_rad = Math.atan2(Math.cos(obliquity_rad) * Math.sin(eclipticLongitude_rad), Math.cos(eclipticLongitude_rad));
+        // Declination (Dec)
+        const declination_rad = Math.asin(Math.sin(obliquity_rad) * Math.sin(eclipticLongitude_rad));
 
-    </script>
+        // --- 3. Convert to Geodetic (Lat, Lon) ---
+        // Sub-solar Latitude is the Declination
+        const lat_rad = declination_rad;
+        // Sub-solar Longitude is (RA - GMST)
+        let lon_rad = rightAscension_rad - gmst_rad;
+
+        // Normalize longitude to [-180, 180] degrees
+        if (lon_rad > Math.PI) lon_rad -= 2 * Math.PI;
+        if (lon_rad < -Math.PI) lon_rad += 2 * Math.PI;
+
+        return {
+            latitude: lat_rad * RAD_TO_DEG,
+            longitude: lon_rad * RAD_TO_DEG
+        };
+    }
+
+    /**
+     * Calculates the moon's phase and approximate sub-lunar point.
+     * @param {Date} date - The current simulation date object.
+     * @param {number} gmst_rad - The current GMST in radians.
+     * @returns {object} {latitude, longitude, phase}
+     */
+    function getMoonData(date, gmst_rad) {
+        
+        // --- 1. Calculate Phase (0 to 1) ---
+        const current_ms = date.getTime();
+        const msSinceNewMoon = current_ms - KNOWN_NEW_MOON_MS;
+        const daysSinceNewMoon = msSinceNewMoon / (1000 * 60 * 60 * 24);
+        
+        let moonPhase = (daysSinceNewMoon / SYNODIC_PERIOD_DAYS) % 1;
+        if (moonPhase < 0) {
+            moonPhase += 1; // Handle dates before the known new moon
+        }
+        // phase: 0 = New, 0.25 = First Q, 0.5 = Full, 0.75 = Third Q
+
+        // --- 2. Calculate Approximate Position ---
+        // This is a simplified model that uses the Sun's orbital plane
+        // and calculates the Moon's position based on its phase (elongation).
+        
+        // Calculate Sun's parameters (needed for relative position)
+        const julianDate = (date.getTime() / 86400000) + 2440587.5;
+        const daysSince2000 = julianDate - 2451545.0;
+
+        const meanLongitude_deg = (280.460 + 0.9856474 * daysSince2000) % 360;
+        const meanAnomaly_deg = (357.528 + 0.9856003 * daysSince2000) % 360;
+        const meanAnomaly_rad = meanAnomaly_deg * DEG_TO_RAD;
+        const sunEclipticLongitude_deg = meanLongitude_deg + 1.915 * Math.sin(meanAnomaly_rad) + 0.020 * Math.sin(2 * meanAnomaly_rad);
+
+        // Calculate Moon's approximate ecliptic longitude based on phase
+        const moonEclipticLongitude_deg = (sunEclipticLongitude_deg + (moonPhase * 360)) % 360;
+        const moonEclipticLongitude_rad = moonEclipticLongitude_deg * DEG_TO_RAD;
+
+        // Obliquity of the ecliptic (same as for sun)
+        const obliquity_deg = 23.439 - 0.0000004 * daysSince2000;
+        const obliquity_rad = obliquity_deg * DEG_TO_RAD;
+
+        // Convert Moon's ecliptic coords to equatorial (RA, Dec)
+        // (This model assumes 0 ecliptic latitude for simplicity)
+        const rightAscension_rad = Math.atan2(Math.cos(obliquity_rad) * Math.sin(moonEclipticLongitude_rad), Math.cos(moonEclipticLongitude_rad));
+        const declination_rad = Math.asin(Math.sin(obliquity_rad) * Math.sin(moonEclipticLongitude_rad));
+
+        // Sub-lunar Latitude is the Declination
+        const lat_rad = declination_rad;
+        // Sub-lunar Longitude is (RA - GMST)
+        let lon_rad = rightAscension_rad - gmst_rad;
+
+        // Normalize longitude
+        if (lon_rad > Math.PI) lon_rad -= 2 * Math.PI;
+        if (lon_rad < -Math.PI) lon_rad += 2 * Math.PI;
+
+        return {
+            latitude: lat_rad * RAD_TO_DEG,
+            longitude: lon_rad * RAD_TO_DEG,
+            phase: moonPhase
+        };
+    }
+
+    // --- Start Application ---
+    init();
+
+</script>
 </body>
 </html>
