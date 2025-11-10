@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hohmann Transfer Calculator</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- General Body and Font Styles --- */
+		body { 
+            margin: 0; 
+            font-family: "Roboto Mono", monospace;
+            font-optical-sizing: auto;
+            font-weight: 400;
+            font-style: normal;
+            font-size: 14px;
+            line-height: 80%;
+            background-color: #000; 
+            color: #fff; 
+            overflow: hidden; /* Prevents scrollbars */
+        }
+        
+        /* --- Main Control Panel (Left Side) --- */
+        #panel-container {
+            position: absolute; 
+			top: 0px;
+            left: 0; 
+			z-index: 10; /* Ensures panel is above map */
+            display: flex;
+            align-items: flex-start;
+            flex-shrink: 0;
+        }
+
+        #info {
+            width: 300px;
+            max-height: calc(100vh - 25px); /* Full height minus some margin */
+            overflow-y: auto; /* Allows panel to scroll if content is long */
+            margin: 5px;
+			margin-left: 15px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.1); /* Semi-transparent background */
+            border-radius: 10px;
+            backdrop-filter: blur(3px); /* Frosted glass effect */
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(190, 153, 5, 1); /* Gold border */
+            transition: all 0.35s ease-in-out;
+            transform: translateX(0); /* Initial state: visible */
+        }
+
+        /* Collapsed state for the panel */
+        #info.collapsed {
+            transform: translateX(-100%); /* Slides panel off-screen */
+            width: 0px;
+            padding-left: 0;
+            padding-right: 0;
+            margin-left: 0;
+            overflow-x: hidden;
+        }
+
+        /* --- Panel Toggle Button (Arrow) --- */
+        #toggle-button {
+            position: absolute;
+            top: 2%;
+            left: 100%; /* Sits on the right edge of the panel */
+            transform: translateX(0);
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            padding-left: 2px;
+            background: #BE9905;
+            border: 0px solid #666;
+            border-left: none;
+            color: white;
+            cursor: pointer;
+            border-radius: 0 8px 8px 0;
+            font-size: 1.0em;
+            line-height: 48px;
+            text-align: center;
+            z-index: 10;
+            transition: all 0.35s ease-in-out;
+        }
+
+        /* Style for toggle button when panel is collapsed */
+        #info.collapsed + #toggle-button {
+            transform: translateX(-10%) translateY(250%);
+			background: #ed1248; /* Changes color to red when hidden */
+        }
+        
+        /* --- Panel Content: Headers & Controls --- */
+        h1 {
+            margin-top: 0; 
+            font-size: 1.8em; 
+            text-align: center; 
+            color: #BE9905; 
+			font-family: "Anta", sans-serif;
+			font-weight: 400;
+			font-style: normal;
+			line-height: 120%;
+		}
+        h2 { 
+            font-size: 0.9em; 
+            color: #BE9905; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            margin-top: 20px; 
+            margin-bottom: 10px; 
+            border-bottom: 1px solid #444; 
+            padding-bottom: 5px;
+			line-height: 120%;
+			font-family: "Anta", sans-serif;
+			font-weight: 400;
+			font-style: normal;
+		}
+        .control-group { margin-bottom: 12px; }
+        label { 
+            display: flex; 
+            justify-content: space-between;
+            margin-bottom: 5px; 
+            font-weight: bold; 
+            font-size: 0.9em; 
+        }
+        label span.unit {
+            font-weight: normal;
+            color: #aaa;
+        }
+        
+        /* Number Input */
+        input[type="number"] {
+            width: 100%;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 5px;
+            font-family: "Roboto Mono", monospace;
+            box-sizing: border-box; /* Ensures padding doesn't affect width */
+            font-size: 0.9em;
+        }
+        
+        /* Select Dropdown */
+        select {
+            width: 100%;
+            background-color: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            padding: 5px;
+            font-family: "Roboto Mono", monospace;
+            box-sizing: border-box;
+            font-size: 0.9em;
+        }
+
+        /* Satellite State Display List */
+        .display-item { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 0.9em; 
+            padding: 5px 0; 
+            border-bottom: 1px solid #333; 
+        }
+        .display-item:last-child { border-bottom: none; }
+        .display-label { color: #aaa; }
+        .display-value { font-weight: bold; }
+        
+        /* Warning Box */
+        .warning { 
+            font-size: 0.85em; 
+            font-weight: bold; 
+            text-align: center; 
+            padding: 6px; 
+            margin-top: 5px; 
+            border-radius: 4px; 
+            display: none; /* Hidden by default */
+        }
+        .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
+        
+        .display-group { margin-bottom: 12px; } 
+
+        /* --- Map Container & SVG --- */
+        #viz-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            min-width: 0;
+        }
+
+        #viz-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: transparent; /* See-through to body background */
+        }
+
+        /* --- Visualization Element Styles --- */
+        .central-body {
+            /* fill is set by JS */
+            stroke: #fff;
+            stroke-width: 1px;
+        }
+
+        .orbit-path {
+            fill: none;
+            stroke-width: 1.5px;
+            stroke-dasharray: 4, 4;
+            display: none; /* Hidden by default */
+        }
+        
+        .orbit-initial {
+            stroke: #00ffff; /* Cyan */
+            stroke-dasharray: none;
+        }
+
+        .orbit-target {
+            stroke: #00ff00; /* Green */
+        }
+
+        .orbit-transfer {
+            stroke: #ed1248; /* Red */
+        }
+
+        .burn-point {
+            fill: #BE9905;
+            stroke: #fff;
+            stroke-width: 1.5px;
+            display: none; /* Hidden by default */
+        }
+        
+        /* Standard Button */
+        .sim-button {
+            width: 100%;
+            padding: 10px;
+            background-color: #BE9905;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            font-family: "Roboto Mono", monospace;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .sim-button:hover {
+            background-color: #ffd966; /* Lighter gold on hover */
+        }
+        .sim-button:disabled {
+            background-color: #555;
+            color: #999;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<div id="panel-container">
+    
+    <div id="info">
+        <h1>Hohmann Transfer</h1>
+        
+        <h2>CENTRAL BODY</h2>
+        <div class="control-group">
+            <label for="central-body-select">Selected Body</label>
+            <select id="central-body-select">
+                <option value="earth">Earth</option>
+                <option value="moon">Moon</option>
+                <option value="mercury">Mercury</option>
+                <option value="venus">Venus</option>
+                <option value="mars">Mars</option>
+                <option value="jupiter">Jupiter</option>
+                <option value="saturn">Saturn</option>
+                <option value="uranus">Uranus</option>
+                <option value="neptune">Neptune</option>
+                <option value="custom">Custom...</option>
+            </select>
+        </div>
+        <div class="display-group" style="margin-bottom: 0;">
+            <div class="display-item"><span class="display-label">Body Mass</span><span class="display-value" id="body-mass-val">N/A</span></div>
+            <div class="display-item"><span class="display-label" id="body-peri-label">Periapsis</span><span class="display-value" id="body-peri-val">N/A</span></div>
+            <div class="display-item"><span class="display-label" id="body-apo-label">Apoapsis</span><span class="display-value" id="body-apo-val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Sphere of Influence</span><span class="display-value" id="body-soi-val">N/A</span></div>
+        </div>
+        <div class="control-group" id="custom-body-group" style="display: none;">
+            <label for="custom-mass" style="margin-top: 10px;">Custom Mass <span class="unit">kg</span></label>
+            <input type="number" id="custom-mass" value="5.972e24">
+            <label for="custom-radius" style="margin-top: 10px;">Custom Radius <span class="unit">km</span></label>
+            <input type="number" id="custom-radius" value="6378.137">
+            <label for="custom-peri-au" style="margin-top: 10px;">Perihelion <span class="unit">au</span></label>
+            <input type="number" id="custom-peri-au" value="1.0">
+            <label for="custom-apo-au" style="margin-top: 10px;">Aphelion <span class="unit">au</span></label>
+            <input type="number" id="custom-apo-au" value="1.0">
+        </div>
+        
+        <h2>ORBIT INPUTS</h2>
+        <div class="control-group">
+            <label for="init-perigee">Initial Periapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="init-perigee" value="250">
+        </div>
+        <div class="control-group">
+            <label for="init-apogee">Initial Apoapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="init-apogee" value="250">
+        </div>
+        <div class="control-group">
+            <label for="target-perigee">Target Periapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="target-perigee" value="35786">
+        </div>
+        <div class="control-group">
+            <label for="target-apogee">Target Apoapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="target-apogee" value="35786">
+        </div>
+        
+        <h2>ROCKET INPUTS</h2>
+         <div class="control-group">
+            <label for="final-mass">Final (dry) Mass <span class="unit">kg</span></label>
+            <input type="number" id="final-mass" value="1000">
+        </div>
+         <div class="control-group">
+            <label for="isp">Specific Impulse (Isp) <span class="unit">s</span></label>
+            <input type="number" id="isp" value="300">
+        </div>
+        
+        
+        <button id="calc-btn" class="sim-button">Calculate Transfer</button>
+        <div id="calc-warning" class="warning"></div>
+        
+        <h2>RESULTS</h2>
+        <div class="display-group">
+            <div class="display-item"><span class="display-label">Transfer Type</span><span class="display-value" id="type-val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Burn 1 (Δv₁)</span><span class="display-value" id="dv1-val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Burn 2 (Δv₂)</span><span class="display-value" id="dv2-val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Total (Δv)</span><span class="display-value" id="total-dv-val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Transfer Time</span><span class="display-value" id="time-val">N/A</span></div>
+        </div>
+        
+        <div class="display-group">
+            <div class="display-item"><span class="display-label">Propellant Mass</span><span class="display-value" id="prop-mass-val">N/A</span></div>
+            <div class="display-item"><span class="display-label">Initial (wet) Mass</span><span class="display-value" id="init-mass-val">N/A</span></div>
+        </div>
+            
+    </div> <button id="toggle-button" title="Toggle Controls">◀</button>
+    
+</div> <div id="viz-container">
+    <svg id="viz-svg">
+        <g id="viz-group">
+            <circle id="central-body" class="central-body" cx="0" cy="0" r="6378"></circle>
+            
+            <g id="orbit-layer">
+                <ellipse id="orbit-initial" class="orbit-path orbit-initial"></ellipse>
+                <ellipse id="orbit-target" class="orbit-path orbit-target"></ellipse>
+                <ellipse id="orbit-transfer" class="orbit-path orbit-transfer"></ellipse>
+            </g>
+            
+            <g id="burn-layer">
+                <circle id="burn-1" class="burn-point" r="7"></circle>
+                <circle id="burn-2" class="burn-point" r="7"></circle>
+            </g>
+        </g>
+    </svg>
+</div>
+
+<script>
+    'use strict'; // Enforce stricter parsing and error handling
+
+    // --- Application Constants ---
+    
+    // Physical constants
+    const G_CONST = 6.67430e-11; // Gravitational constant, N(m/kg)^2
+    const G0 = 9.80665; // Standard gravity (m/s^2) for Isp calc
+    const SUN_MASS_KG = 1.989e30;
+    const AU_TO_KM = 149597870.7;
+    
+    // Data for central bodies
+    const CENTRAL_BODIES = {
+        // name: { name, mass_kg, radius_km, peri_au, apo_au, soi_km, color }
+        // peri_au/apo_au are for the body's orbit around the Sun
+        "earth":   { name: "Earth",   mass_kg: 5.972e24,  radius_km: 6378.137, peri_au: 0.983, apo_au: 1.017, soi_km: 925000,   color: "#336699" },
+        // For Moon, peri/apo are Perigee/Apogee from Earth in km
+        "moon":    { name: "Moon",    mass_kg: 7.347e22,  radius_km: 1737.4,   peri_au: 363300,  apo_au: 405500,  soi_km: 66100,    color: "#aaaaaa" },
+        "mercury": { name: "Mercury", mass_kg: 3.301e23,  radius_km: 2439.7,   peri_au: 0.307, apo_au: 0.467, soi_km: 112000,   color: "#b0a08a" },
+        "venus":   { name: "Venus",   mass_kg: 4.867e24,  radius_km: 6051.8,   peri_au: 0.718, apo_au: 0.728, soi_km: 616000,   color: "#d0c0a0" },
+        "mars":    { name: "Mars",    mass_kg: 6.417e23,  radius_km: 3389.5,   peri_au: 1.382, apo_au: 1.666, soi_km: 577000,   color: "#c1440e" },
+        "jupiter": { name: "Jupiter", mass_kg: 1.898e27,  radius_km: 69911,    peri_au: 4.950, apo_au: 5.458, soi_km: 48200000, color: "#c0a080" },
+        "saturn":  { name: "Saturn",  mass_kg: 5.683e26,  radius_km: 58232,    peri_au: 9.048, apo_au: 10.12, soi_km: 54800000, color: "#f0d0a0" },
+        "uranus":  { name: "Uranus",  mass_kg: 8.681e25,  radius_km: 25362,    peri_au: 18.38, apo_au: 20.08, soi_km: 51800000, color: "#a0c0c0" },
+        "neptune": { name: "Neptune", mass_kg: 1.024e26,  radius_km: 24622,    peri_au: 29.77, apo_au: 30.44, soi_km: 86800000, color: "#4060c0" },
+        "custom":  { name: "Custom",  mass_kg: 5.972e24,  radius_km: 6378.137, peri_au: 1.0,   apo_au: 1.0,   soi_km: 0,        color: "#BE9905" } // Default to Earth
+    };
+
+
+    // --- Global State ---
+    
+    // Visualization variables
+    let g_scale = 1; // Global pixel-per-km scale
+    let g_transferData = null; // Holds the results of the last calculation
+    
+    // Dynamic physics parameters
+    let CURRENT_BODY_RADIUS_KM = CENTRAL_BODIES.earth.radius_km;
+    let CURRENT_GM_M3_S2 = G_CONST * CENTRAL_BODIES.earth.mass_kg;
+
+    /**
+     * Cache of all DOM elements for quick access.
+     */
+    const dom = {
+        infoDiv: document.getElementById('info'),
+        toggleButton: document.getElementById('toggle-button'),
+        vizContainer: document.getElementById('viz-container'),
+        vizSvg: document.getElementById('viz-svg'),
+        vizGroup: document.getElementById('viz-group'),
+        
+        // Central Body
+        centralBodySelect: document.getElementById('central-body-select'),
+        bodyMassVal: document.getElementById('body-mass-val'),
+        bodyPeriLabel: document.getElementById('body-peri-label'),
+        bodyPeriVal: document.getElementById('body-peri-val'),
+        bodyApoLabel: document.getElementById('body-apo-label'),
+        bodyApoVal: document.getElementById('body-apo-val'),
+        bodySoiVal: document.getElementById('body-soi-val'),
+        customBodyGroup: document.getElementById('custom-body-group'),
+        customMassInput: document.getElementById('custom-mass'),
+        customRadiusInput: document.getElementById('custom-radius'),
+        customPeriAuInput: document.getElementById('custom-peri-au'),
+        customApoAuInput: document.getElementById('custom-apo-au'),
+        
+        // Inputs
+        initPerigee: document.getElementById('init-perigee'),
+        initApogee: document.getElementById('init-apogee'),
+        targetPerigee: document.getElementById('target-perigee'),
+        targetApogee: document.getElementById('target-apogee'),
+        finalMass: document.getElementById('final-mass'),
+        isp: document.getElementById('isp'),
+        
+        // Button
+        calcBtn: document.getElementById('calc-btn'),
+        warning: document.getElementById('calc-warning'),
+        
+        // Results - Delta-V
+        typeVal: document.getElementById('type-val'),
+        dv1Val: document.getElementById('dv1-val'),
+        dv2Val: document.getElementById('dv2-val'),
+        totalDvVal: document.getElementById('total-dv-val'),
+        timeVal: document.getElementById('time-val'),
+        
+        // Results - Mass
+        propMassVal: document.getElementById('prop-mass-val'),
+        initMassVal: document.getElementById('init-mass-val'),
+
+        // SVG Elements
+        centralBody: document.getElementById('central-body'),
+        orbitInitial: document.getElementById('orbit-initial'),
+        orbitTarget: document.getElementById('orbit-target'),
+        orbitTransfer: document.getElementById('orbit-transfer'),
+        burn1: document.getElementById('burn-1'),
+        burn2: document.getElementById('burn-2')
+    };
+
+    /**
+     * Main initialization function.
+     */
+    function init() {
+        setupUI();
+        updateCentralBody(); // Set initial body (Earth)
+        onWindowResize(); // Set initial size
+        calculateAndDraw(); // Run with default values
+    }
+    
+    /**
+     * Updates the current central body based on user selection.
+     */
+    function updateCentralBody() {
+        const selectedKey = dom.centralBodySelect.value;
+        let body;
+        let peri_val, apo_val, peri_label, apo_label, soi_val_km;
+
+        if (selectedKey === "custom") {
+            dom.customBodyGroup.style.display = 'block';
+            
+            // Read custom values
+            const mass_kg = parseFloat(dom.customMassInput.value) || CENTRAL_BODIES.earth.mass_kg;
+            const radius_km = parseFloat(dom.customRadiusInput.value) || CENTRAL_BODIES.earth.radius_km;
+            const peri_au = parseFloat(dom.customPeriAuInput.value) || 1.0;
+            const apo_au = parseFloat(dom.customApoAuInput.value) || 1.0;
+            
+            // Update the "custom" entry in the data object
+            body = CENTRAL_BODIES.custom;
+            body.mass_kg = mass_kg;
+            body.radius_km = radius_km;
+            body.peri_au = peri_au;
+            body.apo_au = apo_au;
+
+            // Calculate SOI for custom body (assumes Sun orbit)
+            // SOI ≈ a * (m / M)^(2/5)
+            const a_au = (peri_au + apo_au) / 2.0;
+            const a_km = a_au * AU_TO_KM;
+            const soi_km = a_km * Math.pow(mass_kg / SUN_MASS_KG, 0.4);
+            
+            // Set display values
+            peri_val = `${peri_au.toFixed(3)} au`;
+            apo_val = `${apo_au.toFixed(3)} au`;
+            peri_label = "Perihelion";
+            apo_label = "Aphelion";
+            soi_val_km = soi_km;
+
+        } else {
+            dom.customBodyGroup.style.display = 'none';
+            body = CENTRAL_BODIES[selectedKey];
+            
+            if (selectedKey === "moon") {
+                // Moon is special case, uses km from Earth
+                peri_val = `${(body.peri_au / 1000).toFixed(0)}k km`;
+                apo_val = `${(body.apo_au / 1000).toFixed(0)}k km`;
+                peri_label = "Perigee";
+                apo_label = "Apogee";
+            } else {
+                // All other bodies are planets orbiting Sun (AU)
+                peri_val = `${body.peri_au.toFixed(3)} au`;
+                apo_val = `${body.apo_au.toFixed(3)} au`;
+                peri_label = "Perihelion";
+                apo_label = "Aphelion";
+            }
+            soi_val_km = body.soi_km;
+        }
+        
+        // Update global physics variables
+        CURRENT_BODY_RADIUS_KM = body.radius_km;
+        CURRENT_GM_M3_S2 = G_CONST * body.mass_kg;
+        
+        // Update the display panel
+        dom.bodyMassVal.textContent = `${body.mass_kg.toExponential(3)} kg`;
+        dom.bodyPeriLabel.textContent = peri_label;
+        dom.bodyPeriVal.textContent = peri_val;
+        dom.bodyApoLabel.textContent = apo_label;
+        dom.bodyApoVal.textContent = apo_val;
+        dom.bodySoiVal.textContent = `${(soi_val_km / 1000).toFixed(0)}k km`;
+        
+        // Update visualization color
+        dom.centralBody.style.fill = body.color;
+        
+        // When the body changes, the old results are invalid
+        clearResults();
+        
+        // Also, re-draw the central body with the new radius
+        dom.centralBody.setAttribute('r', CURRENT_BODY_RADIUS_KM * g_scale);
+    }
+
+
+    /**
+     * Sets up all UI event listeners.
+     */
+    function setupUI() {
+        // --- Panel Toggle Button ---
+        dom.toggleButton.addEventListener('click', () => {
+            dom.infoDiv.classList.toggle('collapsed');
+            dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
+        });
+
+        // --- Window Resize ---
+        window.addEventListener('resize', onWindowResize);
+        
+        // --- Calculate Button ---
+        dom.calcBtn.addEventListener('click', calculateAndDraw);
+        
+        // --- Central Body Listeners ---
+        dom.centralBodySelect.addEventListener('change', updateCentralBody);
+        dom.customMassInput.addEventListener('input', updateCentralBody);
+        dom.customRadiusInput.addEventListener('input', updateCentralBody);
+        dom.customPeriAuInput.addEventListener('input', updateCentralBody);
+        dom.customApoAuInput.addEventListener('input', updateCentralBody);
+        
+        // --- Input Listeners ---
+        // Clear results if inputs change
+        const inputs = [dom.initPerigee, dom.initApogee, dom.targetPerigee, dom.targetApogee, dom.finalMass, dom.isp];
+        inputs.forEach(input => {
+            input.addEventListener('input', clearResults);
+        });
+    }
+
+    /**
+     * Clears all calculation results and hides the visualization.
+     */
+    function clearResults() {
+        dom.typeVal.textContent = 'N/A';
+        dom.dv1Val.textContent = 'N/A';
+        dom.dv2Val.textContent = 'N/A';
+        dom.totalDvVal.textContent = 'N/A';
+        dom.timeVal.textContent = 'N/A';
+        dom.propMassVal.textContent = 'N/A';
+        dom.initMassVal.textContent = 'N/A';
+        
+        dom.warning.className = 'warning';
+        dom.warning.textContent = '';
+        
+        g_transferData = null; // Clear data
+        
+        // Hide orbits and burns
+        dom.orbitInitial.style.display = 'none';
+        dom.orbitTarget.style.display = 'none';
+        dom.orbitTransfer.style.display = 'none';
+        dom.burn1.style.display = 'none';
+        dom.burn2.style.display = 'none';
+    }
+
+    /**
+     * Handles window resize events to keep the visualization centered and scaled.
+     */
+    function onWindowResize() {
+        const w = dom.vizContainer.clientWidth;
+        const h = dom.vizContainer.clientHeight;
+        
+        dom.vizSvg.setAttribute("width", w);
+        dom.vizSvg.setAttribute("height", h);
+        
+        // Center the visualization group
+        dom.vizGroup.setAttribute("transform", `translate(${w / 2}, ${h / 2})`);
+        
+        // If we have data, rescale and redraw
+        if (g_transferData) {
+            updateScaleAndRedraw();
+        }
+    }
+
+    /**
+     * Updates the global scale factor and redraws all elements.
+     */
+    function updateScaleAndRedraw() {
+        if (!g_transferData) return;
+
+        const w = dom.vizContainer.clientWidth;
+        const h = dom.vizContainer.clientHeight;
+
+        // Find the largest radius in the scene (in km)
+        const max_r_km = Math.max(
+            g_transferData.r_a1_km, 
+            g_transferData.r_a2_km, 
+            g_transferData.r_a_t_km
+        );
+
+        // Calculate scale to fit 90% of the smallest screen dimension
+        const max_dim = Math.min(w, h) * 0.45; // 0.45 since it's radius
+        
+        g_scale = max_dim / max_r_km; // pixels per km
+        
+        // Redraw all elements with the new scale
+        drawAllElements();
+    }
+    
+    /**
+     * Draws all SVG elements based on global data and scale.
+     */
+    function drawAllElements() {
+        if (!g_transferData) return;
+        
+        const data = g_transferData;
+
+        // Draw Central Body
+        dom.centralBody.setAttribute('r', CURRENT_BODY_RADIUS_KM * g_scale);
+        
+        // Draw Orbits
+        drawEllipse(dom.orbitInitial, data.r_p1_km, data.r_a1_km, g_scale);
+        drawEllipse(dom.orbitTarget, data.r_p2_km, data.r_a2_km, g_scale);
+        drawEllipse(dom.orbitTransfer, data.r_p_t_km, data.r_a_t_km, g_scale);
+        
+        // Draw Burn Points
+        // My convention: Perigee is at positive X, Apogee is at negative X
+        drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApogee);
+        drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApogee);
+    }
+
+    /**
+     * Draws an SVG ellipse for an orbit.
+     * Puts Earth at the focus (0,0).
+     * Perigee is at (+r_p, 0), Apogee is at (-r_a, 0).
+     * @param {Element} el - The SVG <ellipse> element.
+     * @param {number} r_p_km - Perigee radius (km).
+     * @param {number} r_a_km - Apogee radius (km).
+     * @param {number} scale - Pixels-per-km.
+     */
+    function drawEllipse(el, r_p_km, r_a_km, scale) {
+        const r_p_px = r_p_km * scale;
+        const r_a_px = r_a_km * scale;
+
+        const a_px = (r_p_px + r_a_px) / 2; // Semi-major axis
+        const c_px = a_px - r_p_px;        // Focus-to-center distance
+        const e = c_px / a_px;             // Eccentricity
+        const b_px = a_px * Math.sqrt(1 - e * e); // Semi-minor axis
+        
+        const cx_px = -c_px; // Center of ellipse X-coord
+        
+        el.setAttribute('cx', cx_px);
+        el.setAttribute('cy', 0);
+        el.setAttribute('rx', a_px);
+        el.setAttribute('ry', b_px);
+        el.style.display = 'block';
+    }
+
+    /**
+     * Draws a circle for a burn point.
+     * @param {Element} el - The SVG <circle> element.
+     * @param {number} r_km - Radius of the burn (km).
+     * @param {number} scale - Pixels-per-km.
+     * @param {boolean} isApogee - True if burn is at apogee (-x), false if at perigee (+x).
+     */
+    function drawBurnPoint(el, r_km, scale, isApogee) {
+        const r_px = r_km * scale;
+        const cx_px = isApogee ? -r_px : r_px;
+        
+        el.setAttribute('cx', cx_px);
+        el.setAttribute('cy', 0);
+        el.style.display = 'block';
+    }
+
+    /**
+     * Helper to get velocity at a point in an orbit.
+     * @param {number} r_m - Current radius from center (meters).
+     * @param {number} a_m - Semi-major axis of orbit (meters).
+     * @returns {number} Velocity in m/s.
+     */
+    function getVelocity(r_m, a_m) {
+        return Math.sqrt(CURRENT_GM_M3_S2 * ((2 / r_m) - (1 / a_m)));
+    }
+
+    /**
+     * The main calculation function.
+     */
+    function calculateAndDraw() {
+        clearResults(); // Clear previous results first
+        
+        try {
+            // --- 1. Get and Validate Inputs ---
+            const r_p1_alt_km = parseFloat(dom.initPerigee.value);
+            const r_a1_alt_km = parseFloat(dom.initApogee.value);
+            const r_p2_alt_km = parseFloat(dom.targetPerigee.value);
+            const r_a2_alt_km = parseFloat(dom.targetApogee.value);
+            const finalMass_kg = parseFloat(dom.finalMass.value);
+            const isp_s = parseFloat(dom.isp.value);
+            
+            if ([r_p1_alt_km, r_a1_alt_km, r_p2_alt_km, r_a2_alt_km, finalMass_kg, isp_s].some(isNaN)) {
+                throw new Error("All input fields must be valid numbers.");
+            }
+            if (r_a1_alt_km < r_p1_alt_km) throw new Error("Initial Apoapsis must be >= Initial Periapsis.");
+            if (r_a2_alt_km < r_p2_alt_km) throw new Error("Target Apoapsis must be >= Target Periapsis.");
+            if (r_p1_alt_km < 100 || r_p2_alt_km < 100) {
+                 throw new Error("Orbits below 100km altitude are not stable.");
+            }
+
+            // Convert to radii in METERS for physics
+            const r_p1_m = (r_p1_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
+            const r_a1_m = (r_a1_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
+            const r_p2_m = (r_p2_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
+            const r_a2_m = (r_a2_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
+
+            // --- 2. Calculate Initial and Final Orbit Velocities ---
+            const a1_m = (r_p1_m + r_a1_m) / 2; // Initial semi-major axis
+            const a2_m = (r_p2_m + r_a2_m) / 2; // Target semi-major axis
+
+            const v_i_p1 = getVelocity(r_p1_m, a1_m); // Initial vel at perigee 1
+            const v_i_a1 = getVelocity(r_a1_m, a1_m); // Initial vel at apogee 1
+            const v_f_p2 = getVelocity(r_p2_m, a2_m); // Final vel at perigee 2
+            const v_f_a2 = getVelocity(r_a2_m, a2_m); // Final vel at apogee 2
+
+            // --- 3. Calculate Two Possible Transfers ---
+            
+            // Scenario 1: Perigee-to-Apogee Transfer (p1 -> a2)
+            let dv1_s1 = Infinity, dv2_s1 = Infinity, total_dv_s1 = Infinity;
+            let a_t1_m = 0;
+            if (r_a2_m >= r_p1_m) { // Check if transfer is possible
+                a_t1_m = (r_p1_m + r_a2_m) / 2; // Transfer orbit semi-major axis
+                const v_t_p1 = getVelocity(r_p1_m, a_t1_m); // Transfer vel at perigee
+                const v_t_a2 = getVelocity(r_a2_m, a_t1_m); // Transfer vel at apogee
+                
+                dv1_s1 = Math.abs(v_t_p1 - v_i_p1);
+                dv2_s1 = Math.abs(v_f_a2 - v_t_a2);
+                total_dv_s1 = dv1_s1 + dv2_s1;
+            }
+
+            // Scenario 2: Apogee-to-Perigee Transfer (a1 -> p2)
+            let dv1_s2 = Infinity, dv2_s2 = Infinity, total_dv_s2 = Infinity;
+            let a_t2_m = 0;
+            if (r_a1_m >= r_p2_m) { // Check if transfer is possible
+                a_t2_m = (r_a1_m + r_p2_m) / 2; // Transfer orbit semi-major axis
+                const v_t_a1 = getVelocity(r_a1_m, a_t2_m); // Transfer vel at apogee
+                const v_t_p2 = getVelocity(r_p2_m, a_t2_m); // Transfer vel at perigee
+
+                dv1_s2 = Math.abs(v_t_a1 - v_i_a1);
+                dv2_s2 = Math.abs(v_f_p2 - v_t_p2);
+                total_dv_s2 = dv1_s2 + dv2_s2;
+            }
+
+            // --- 4. Select Best Transfer ---
+            let best_dv1, best_dv2, best_total_dv, transferType, a_t_m;
+            
+            if (total_dv_s1 === Infinity && total_dv_s2 === Infinity) {
+                throw new Error("No co-axial bi-tangential transfer is possible.");
+            }
+
+            if (total_dv_s1 <= total_dv_s2) {
+                best_dv1 = dv1_s1;
+                best_dv2 = dv2_s1;
+                best_total_dv = total_dv_s1;
+                transferType = "Periapsis -> Apoapsis";
+                a_t_m = a_t1_m;
+                g_transferData = {
+                    r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
+                    r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
+                    r_p_t_km: r_p1_m / 1000, r_a_t_km: r_a2_m / 1000,
+                    burn1_r_km: r_p1_m / 1000, burn1_isApogee: false,
+                    burn2_r_km: r_a2_m / 1000, burn2_isApogee: true,
+                };
+            } else {
+                best_dv1 = dv1_s2;
+                best_dv2 = dv2_s2;
+                best_total_dv = total_dv_s2;
+                transferType = "Apoapsis -> Periapsis";
+                a_t_m = a_t2_m;
+                g_transferData = {
+                    r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
+                    r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
+                    r_p_t_km: r_p2_m / 1000, r_a_t_km: r_a1_m / 1000,
+                    burn1_r_km: r_a1_m / 1000, burn1_isApogee: true,
+                    burn2_r_km: r_p2_m / 1000, burn2_isApogee: false,
+                };
+            }
+
+            // --- 5. Rocket Equation & Transfer Time ---
+            const ve = isp_s * G0; // Effective exhaust velocity (m/s)
+            const massRatio = Math.exp(best_total_dv / ve);
+            const initialMass_kg = finalMass_kg * massRatio;
+            const propellantMass_kg = initialMass_kg - finalMass_kg;
+            
+            // Transfer time is half the period of the transfer orbit
+            // T = 2*pi * sqrt(a^3 / GM)
+            // Time = T/2 = pi * sqrt(a^3 / GM)
+            const transfer_time_s = Math.PI * Math.sqrt(Math.pow(a_t_m, 3) / CURRENT_GM_M3_S2);
+            const transfer_time_min = transfer_time_s / 60.0;
+
+            // --- 6. Update UI Display ---
+            dom.typeVal.textContent = transferType;
+            dom.dv1Val.textContent = `${best_dv1.toFixed(1)} m/s`;
+            dom.dv2Val.textContent = `${best_dv2.toFixed(1)} m/s`;
+            dom.totalDvVal.textContent = `${best_total_dv.toFixed(1)} m/s`;
+            dom.timeVal.textContent = `${transfer_time_min.toFixed(1)} min`;
+            
+            dom.propMassVal.textContent = `${propellantMass_kg.toFixed(1)} kg`;
+            dom.initMassVal.textContent = `${initialMass_kg.toFixed(1)} kg`;
+
+            // --- 7. Draw Visualization ---
+            updateScaleAndRedraw();
+
+        } catch (err) {
+            // Handle errors
+            dom.warning.className = 'warning red';
+            dom.warning.textContent = `ERROR: ${err.message}`;
+            g_transferData = null; // Ensure nothing is drawn
+        }
+    }
+
+    // --- Start Application ---
+    init();
+
+</script>
+</body>
+</html>
