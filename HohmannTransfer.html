@@ -860,19 +860,122 @@
             updateScaleAndRedraw();
             
             // --- 8. Bi-elliptic Check ---
+            // This check assumes circular start/end orbits at the transfer radii
+            // for the purpose of the warning, as the full bi-elliptic calculation
+            // between two elliptical orbits is more complex.
+            
+            // Helper function for Hohmann DV calc (assumes circular start/end)
+            function getHohmannDV(r1, r2, mu) {
+                const v1 = Math.sqrt(mu / r1);
+                const v2 = Math.sqrt(mu / r2);
+                const a_t = (r1 + r2) / 2;
+                const v_t1 = getVelocity(r1, a_t); // getVelocity is in global scope
+                const v_t2 = getVelocity(r2, a_t);
+                return Math.abs(v_t1 - v1) + Math.abs(v2 - v_t2);
+            }
+
+            // Helper function for Bi-Elliptic DV calc
+            function getBiEllipticDV(r1, r2, rb, mu) {
+                if (rb <= r2) { // rb must be greater than outer radius
+                    return Infinity; // Not a valid BE transfer
+                }
+                const v1 = Math.sqrt(mu / r1); // Vel at r1
+                const v2 = Math.sqrt(mu / r2); // Vel at r2
+                
+                const a_t1 = (r1 + rb) / 2; // Semi-major axis of first transfer
+                const a_t2 = (r2 + rb) / 2; // Semi-major axis of second transfer
+                
+                const v_t1_p = getVelocity(r1, a_t1); // Vel at r1 on transfer 1
+                const v_t1_a = getVelocity(rb, a_t1); // Vel at rb on transfer 1
+                
+                const v_t2_a = getVelocity(rb, a_t2); // Vel at rb on transfer 2
+                const v_t2_p = getVelocity(r2, a_t2); // Vel at r2 on transfer 2
+                
+                const dv1 = Math.abs(v_t1_p - v1); // Burn 1 (at r1)
+                const dv2 = Math.abs(v_t2_a - v_t1_a); // Burn 2 (at rb)
+                const dv3 = Math.abs(v_t2_p - v2); // Burn 3 (at r2)
+                
+                return dv1 + dv2 + dv3;
+            }
+            
+            // Helper for transfer time
+            function getBiEllipticTime_s(r1, r2, rb, mu) {
+                const a_t1 = (r1 + rb) / 2;
+                const a_t2 = (r2 + rb) / 2;
+                const time1 = Math.PI * Math.sqrt(Math.pow(a_t1, 3) / mu); // time for 1st transfer
+                const time2 = Math.PI * Math.sqrt(Math.pow(a_t2, 3) / mu); // time for 2nd transfer
+                return time1 + time2;
+            }
+
             dom.biEllipticWarning.style.display = 'none';
             const r_inner_m = Math.min(r_A, r_D);
             const r_outer_m = Math.max(r_A, r_D);
             const R = r_outer_m / r_inner_m;
-            
-            if (R > 11.938) {
+            const mu = CURRENT_GM_M3_S2;
+
+            const R_inf = 11.9387; // Crossover for bi-parabolic
+            const R_crit = 15.5817; // Crossover for r_b = r_2
+
+            if (R >= R_crit) {
+                // Case 1: R >= 15.58. ANY bi-elliptic transfer (rb > r_outer_m) is more efficient.
                 dom.biEllipticWarning.className = 'warning amber';
-                dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The radius ratio R (${R.toFixed(1)}) is > 11.94. <br> A bi-elliptic transfer *may* be more efficient than this bi-tangential transfer. <br> This requires a common apoapsis radius much larger than ${(r_outer_m/1000).toFixed(0)} km, but will take significantly longer.`;
+                dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The radius ratio R (${R.toFixed(1)}) is &ge; 15.58. <br> **Any bi-elliptic transfer** (with an apoapsis > ${(r_outer_m/1000).toFixed(0)} km) will be more fuel-efficient than this bi-tangential transfer.`;
                 dom.biEllipticWarning.style.display = 'block';
+
+            } else if (R > R_inf) {
+                // Case 2 & 3: 11.94 < R < 15.58
+                
+                if (R - R_inf < 0.01) {
+                    // Case 2: R is very close to 11.94
+                    dom.biEllipticWarning.className = 'warning amber';
+                    dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The radius ratio R (${R.toFixed(1)}) is at the ~11.94 crossover. <br> A bi-elliptic transfer is theoretically more efficient, but requires a near-infinite transfer apoapsis and transfer time.`;
+                    dom.biEllipticWarning.style.display = 'block';
+                } else {
+                    // Case 3: 11.94 < R < 15.58
+                    // Find Breakeven Radius using bisection
+                    const dv_Hohmann = getHohmannDV(r_inner_m, r_outer_m, mu);
+                    const diff_func = (rb) => getBiEllipticDV(r_inner_m, r_outer_m, rb, mu) - dv_Hohmann;
+                    
+                    let low = r_outer_m * 1.001; // Start just outside the outer orbit
+                    let high = r_outer_m * (R + 100); // A very large number
+                    
+                    // Check if our bounds are valid. 
+                    // At low, diff should be positive (Hohmann is better).
+                    // At high, diff should be negative (BE is better).
+                    if (diff_func(low) > 0 && diff_func(high) < 0) {
+                        for (let i = 0; i < 50; i++) { // 50 iterations is enough
+                            let mid = (low + high) / 2;
+                            if (diff_func(mid) < 0) { // BE is better, breakeven is higher
+                                high = mid;
+                            } else { // Hohmann is better, breakeven is lower
+                                low = mid;
+                            }
+                        }
+                        
+                        const breakeven_rb_m = high;
+                        const breakeven_rb_alt_km = (breakeven_rb_m / 1000) - CURRENT_BODY_RADIUS_KM;
+                        const transfer_time_s = getBiEllipticTime_s(r_inner_m, r_outer_m, breakeven_rb_m, mu);
+                        const transfer_time_days = transfer_time_s / 60.0 / 60.0 / 24.0;
+
+                        // --- MODIFICATION HERE ---
+                        const rounded_breakeven_alt_km = Math.ceil(breakeven_rb_alt_km / 500) * 500;
+                        const formatted_alt_km = rounded_breakeven_alt_km.toLocaleString('en-US');
+
+                        dom.biEllipticWarning.className = 'warning amber';
+                        dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The radius ratio R (${R.toFixed(1)}) is > 11.94. <br> A bi-elliptic transfer will be more efficient **only if** its apoapsis altitude is > **${formatted_alt_km} km**. <br> A transfer at that break-even altitude would take **${transfer_time_days.toFixed(1)} days**.`;
+                        dom.biEllipticWarning.style.display = 'block';
+
+                    } else {
+                        // Fallback if bounds are not as expected
+                        dom.biEllipticWarning.className = 'warning amber';
+                        dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The radius ratio R (${R.toFixed(1)}) is > 11.94. <br> A bi-elliptic transfer *may* be more efficient, but requires an apoapsis much larger than ${(r_outer_m/1000).toFixed(0)} km.`;
+                        dom.biEllipticWarning.style.display = 'block';
+                    }
+                }
             }
 
 
-        } catch (err) {
+        } catch (err) { // <-- CORRECTED BLOCK
             // Handle errors
             dom.warning.className = 'warning red';
             dom.warning.textContent = `ERROR: ${err.message}`;
