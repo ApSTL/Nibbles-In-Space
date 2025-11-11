@@ -175,8 +175,10 @@
             margin-top: 5px; 
             border-radius: 4px; 
             display: none; /* Hidden by default */
+            line-height: 1.4;
         }
         .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
+        .warning.amber { display: block; background-color: #5d4500; color: #ffc107; }
         
         .display-group { margin-bottom: 12px; } 
 
@@ -328,6 +330,7 @@
         
         <button id="calc-btn" class="sim-button">Calculate Transfer</button>
         <div id="calc-warning" class="warning"></div>
+        <div id="bi-elliptic-warning" class="warning"></div>
         
         <h2>RESULTS</h2>
         <div class="display-group">
@@ -438,6 +441,7 @@
         // Button
         calcBtn: document.getElementById('calc-btn'),
         warning: document.getElementById('calc-warning'),
+        biEllipticWarning: document.getElementById('bi-elliptic-warning'),
         
         // Results - Delta-V
         typeVal: document.getElementById('type-val'),
@@ -594,6 +598,8 @@
         
         dom.warning.className = 'warning';
         dom.warning.textContent = '';
+        dom.biEllipticWarning.style.display = 'none';
+        dom.biEllipticWarning.textContent = '';
         
         g_transferData = null; // Clear data
         
@@ -666,18 +672,17 @@
         drawEllipse(dom.orbitTransfer, data.r_p_t_km, data.r_a_t_km, g_scale);
         
         // Draw Burn Points
-        // My convention: Perigee is at positive X, Apogee is at negative X
         drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApogee);
         drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApogee);
     }
 
     /**
      * Draws an SVG ellipse for an orbit.
-     * Puts Earth at the focus (0,0).
-     * Perigee is at (+r_p, 0), Apogee is at (-r_a, 0).
+     * Puts body at the focus (0,0).
+     * Periapsis is at (0, +r_p), Apoapsis is at (0, -r_a).
      * @param {Element} el - The SVG <ellipse> element.
-     * @param {number} r_p_km - Perigee radius (km).
-     * @param {number} r_a_km - Apogee radius (km).
+     * @param {number} r_p_km - Periapsis radius (km).
+     * @param {number} r_a_km - Apoapsis radius (km).
      * @param {number} scale - Pixels-per-km.
      */
     function drawEllipse(el, r_p_km, r_a_km, scale) {
@@ -685,16 +690,16 @@
         const r_a_px = r_a_km * scale;
 
         const a_px = (r_p_px + r_a_px) / 2; // Semi-major axis
-        const c_px = a_px - r_p_px;        // Focus-to-center distance
-        const e = c_px / a_px;             // Eccentricity
+        const c_px = (r_a_px - r_p_px) / 2; // Focus-to-center distance
+        const e = (c_px / a_px) || 0; // Eccentricity, handle divide-by-zero for circular
         const b_px = a_px * Math.sqrt(1 - e * e); // Semi-minor axis
         
-        const cx_px = -c_px; // Center of ellipse X-coord
+        const cy_px = -c_px; // Center of ellipse Y-coord (Periapsis at +Y)
         
-        el.setAttribute('cx', cx_px);
-        el.setAttribute('cy', 0);
-        el.setAttribute('rx', a_px);
-        el.setAttribute('ry', b_px);
+        el.setAttribute('cx', 0);
+        el.setAttribute('cy', cy_px);
+        el.setAttribute('rx', b_px); // Semi-minor axis is now horizontal radius
+        el.setAttribute('ry', a_px); // Semi-major axis is now vertical radius
         el.style.display = 'block';
     }
 
@@ -702,15 +707,15 @@
      * Draws a circle for a burn point.
      * @param {Element} el - The SVG <circle> element.
      * @param {number} r_km - Radius of the burn (km).
-     * @param {number} scale - Pixels-per-km.
-     * @param {boolean} isApogee - True if burn is at apogee (-x), false if at perigee (+x).
+     *S     * @param {number} scale - Pixels-per-km.
+     * @param {boolean} isApogee - True if burn is at apoapsis (-Y), false if at periapsis (+Y).
      */
     function drawBurnPoint(el, r_km, scale, isApogee) {
         const r_px = r_km * scale;
-        const cx_px = isApogee ? -r_px : r_px;
+        const cy_px = isApogee ? -r_px : r_px; // Apoapsis at -Y, Periapsis at +Y
         
-        el.setAttribute('cx', cx_px);
-        el.setAttribute('cy', 0);
+        el.setAttribute('cx', 0);
+        el.setAttribute('cy', cy_px);
         el.style.display = 'block';
     }
 
@@ -793,6 +798,7 @@
 
             // --- 4. Select Best Transfer ---
             let best_dv1, best_dv2, best_total_dv, transferType, a_t_m;
+            let r_A, r_D; // Radii of the two burns
             
             if (total_dv_s1 === Infinity && total_dv_s2 === Infinity) {
                 throw new Error("No co-axial bi-tangential transfer is possible.");
@@ -804,6 +810,7 @@
                 best_total_dv = total_dv_s1;
                 transferType = "Periapsis -> Apoapsis";
                 a_t_m = a_t1_m;
+                r_A = r_p1_m; r_D = r_a2_m;
                 g_transferData = {
                     r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
                     r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
@@ -817,6 +824,7 @@
                 best_total_dv = total_dv_s2;
                 transferType = "Apoapsis -> Periapsis";
                 a_t_m = a_t2_m;
+                r_A = r_a1_m; r_D = r_p2_m;
                 g_transferData = {
                     r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
                     r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
@@ -850,6 +858,19 @@
 
             // --- 7. Draw Visualization ---
             updateScaleAndRedraw();
+            
+            // --- 8. Bi-elliptic Check ---
+            dom.biEllipticWarning.style.display = 'none';
+            const r_inner_m = Math.min(r_A, r_D);
+            const r_outer_m = Math.max(r_A, r_D);
+            const R = r_outer_m / r_inner_m;
+            
+            if (R > 11.938) {
+                dom.biEllipticWarning.className = 'warning amber';
+                dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The radius ratio R (${R.toFixed(1)}) is > 11.94. <br> A bi-elliptic transfer *may* be more efficient than this bi-tangential transfer. <br> This requires a common apoapsis radius much larger than ${(r_outer_m/1000).toFixed(0)} km, but will take significantly longer.`;
+                dom.biEllipticWarning.style.display = 'block';
+            }
+
 
         } catch (err) {
             // Handle errors
