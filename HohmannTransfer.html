@@ -302,20 +302,20 @@
         
         <h2>ORBIT INPUTS</h2>
         <div class="control-group">
-            <label for="init-perigee">Initial Periapsis (Alt) <span class="unit">km</span></label>
-            <input type="number" id="init-perigee" value="850">
+            <label for="init-periapsis">Initial Periapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="init-periapsis" value="850">
         </div>
         <div class="control-group">
-            <label for="init-apogee">Initial Apoapsis (Alt) <span class="unit">km</span></label>
-            <input type="number" id="init-apogee" value="850">
+            <label for="init-apoapsis">Initial Apoapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="init-apoapsis" value="850">
         </div>
         <div class="control-group">
-            <label for="target-perigee">Target Periapsis (Alt) <span class="unit">km</span></label>
-            <input type="number" id="target-perigee" value="35786">
+            <label for="target-periapsis">Target Periapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="target-periapsis" value="35786">
         </div>
         <div class="control-group">
-            <label for="target-apogee">Target Apoapsis (Alt) <span class="unit">km</span></label>
-            <input type="number" id="target-apogee" value="35786">
+            <label for="target-apoapsis">Target Apoapsis (Alt) <span class="unit">km</span></label>
+            <input type="number" id="target-apoapsis" value="35786">
         </div>
         
         <h2>ROCKET INPUTS</h2>
@@ -430,10 +430,10 @@
         customApoAuInput: document.getElementById('custom-apo-au'),
         
         // Inputs
-        initPerigee: document.getElementById('init-perigee'),
-        initApogee: document.getElementById('init-apogee'),
-        targetPerigee: document.getElementById('target-perigee'),
-        targetApogee: document.getElementById('target-apogee'),
+        initPeriapsis: document.getElementById('init-periapsis'),
+        initApoapsis: document.getElementById('init-apoapsis'),
+        targetPeriapsis: document.getElementById('target-periapsis'),
+        targetApoapsis: document.getElementById('target-apoapsis'),
         finalMass: document.getElementById('final-mass'),
         isp: document.getElementById('isp'),
         
@@ -577,7 +577,7 @@
         
         // --- Input Listeners ---
         // Clear results if inputs change
-        const inputs = [dom.initPerigee, dom.initApogee, dom.targetPerigee, dom.targetApogee, dom.finalMass, dom.isp];
+        const inputs = [dom.initPeriapsis, dom.initApoapsis, dom.targetPeriapsis, dom.targetApoapsis, dom.finalMass, dom.isp];
         inputs.forEach(input => {
             input.addEventListener('input', clearResults);
         });
@@ -671,8 +671,8 @@
         drawEllipse(dom.orbitTransfer, data.r_p_t_km, data.r_a_t_km, g_scale);
         
         // Draw Burn Points
-        drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApogee);
-        drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApogee);
+        drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApoapsis);
+        drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApoapsis);
     }
 
     /**
@@ -707,11 +707,11 @@
      * @param {Element} el - The SVG <circle> element.
      * @param {number} r_km - Radius of the burn (km).
      *S     * @param {number} scale - Pixels-per-km.
-     * @param {boolean} isApogee - True if burn is at apoapsis (-Y), false if at periapsis (+Y).
+     * @param {boolean} isApoapsis - True if burn is at apoapsis (-Y), false if at periapsis (+Y).
      */
-    function drawBurnPoint(el, r_km, scale, isApogee) {
+    function drawBurnPoint(el, r_km, scale, isApoapsis) {
         const r_px = r_km * scale;
-        const cy_px = isApogee ? -r_px : r_px; // Apoapsis at -Y, Periapsis at +Y
+        const cy_px = isApoapsis ? -r_px : r_px; // Apoapsis at -Y, Periapsis at +Y
         
         el.setAttribute('cx', 0);
         el.setAttribute('cy', cy_px);
@@ -736,10 +736,10 @@
         
         try {
             // --- 1. Get and Validate Inputs ---
-            const r_p1_alt_km = parseFloat(dom.initPerigee.value);
-            const r_a1_alt_km = parseFloat(dom.initApogee.value);
-            const r_p2_alt_km = parseFloat(dom.targetPerigee.value);
-            const r_a2_alt_km = parseFloat(dom.targetApogee.value);
+            const r_p1_alt_km = parseFloat(dom.initPeriapsis.value);
+            const r_a1_alt_km = parseFloat(dom.initApoapsis.value);
+            const r_p2_alt_km = parseFloat(dom.targetPeriapsis.value);
+            const r_a2_alt_km = parseFloat(dom.targetApoapsis.value);
             const finalMass_kg = parseFloat(dom.finalMass.value);
             const isp_s = parseFloat(dom.isp.value);
             
@@ -762,33 +762,33 @@
             const a1_m = (r_p1_m + r_a1_m) / 2; // Initial semi-major axis
             const a2_m = (r_p2_m + r_a2_m) / 2; // Target semi-major axis
 
-            const v_i_p1 = getVelocity(r_p1_m, a1_m); // Initial vel at perigee 1
-            const v_i_a1 = getVelocity(r_a1_m, a1_m); // Initial vel at apogee 1
-            const v_f_p2 = getVelocity(r_p2_m, a2_m); // Final vel at perigee 2
-            const v_f_a2 = getVelocity(r_a2_m, a2_m); // Final vel at apogee 2
+            const v_i_p1 = getVelocity(r_p1_m, a1_m); // Initial vel at periapsis 1
+            const v_i_a1 = getVelocity(r_a1_m, a1_m); // Initial vel at apoapsis 1
+            const v_f_p2 = getVelocity(r_p2_m, a2_m); // Final vel at periapsis 2
+            const v_f_a2 = getVelocity(r_a2_m, a2_m); // Final vel at apoapsis 2
 
             // --- 3. Calculate Two Possible Transfers ---
             
-            // Scenario 1: Perigee-to-Apogee Transfer (p1 -> a2)
+            // Scenario 1: Periapsis-to-Apoapsis Transfer (p1 -> a2)
             let dv1_s1 = Infinity, dv2_s1 = Infinity, total_dv_s1 = Infinity;
             let a_t1_m = 0;
             if (r_a2_m >= r_p1_m) { // Check if transfer is possible
                 a_t1_m = (r_p1_m + r_a2_m) / 2; // Transfer orbit semi-major axis
-                const v_t_p1 = getVelocity(r_p1_m, a_t1_m); // Transfer vel at perigee
-                const v_t_a2 = getVelocity(r_a2_m, a_t1_m); // Transfer vel at apogee
+                const v_t_p1 = getVelocity(r_p1_m, a_t1_m); // Transfer vel at periapsis
+                const v_t_a2 = getVelocity(r_a2_m, a_t1_m); // Transfer vel at apoapsis
                 
                 dv1_s1 = Math.abs(v_t_p1 - v_i_p1);
                 dv2_s1 = Math.abs(v_f_a2 - v_t_a2);
                 total_dv_s1 = dv1_s1 + dv2_s1;
             }
 
-            // Scenario 2: Apogee-to-Perigee Transfer (a1 -> p2)
+            // Scenario 2: Apoapsis-to-Periapsis Transfer (a1 -> p2)
             let dv1_s2 = Infinity, dv2_s2 = Infinity, total_dv_s2 = Infinity;
             let a_t2_m = 0;
             if (r_a1_m >= r_p2_m) { // Check if transfer is possible
                 a_t2_m = (r_a1_m + r_p2_m) / 2; // Transfer orbit semi-major axis
-                const v_t_a1 = getVelocity(r_a1_m, a_t2_m); // Transfer vel at apogee
-                const v_t_p2 = getVelocity(r_p2_m, a_t2_m); // Transfer vel at perigee
+                const v_t_a1 = getVelocity(r_a1_m, a_t2_m); // Transfer vel at apoapsis
+                const v_t_p2 = getVelocity(r_p2_m, a_t2_m); // Transfer vel at periapsis
 
                 dv1_s2 = Math.abs(v_t_a1 - v_i_a1);
                 dv2_s2 = Math.abs(v_f_p2 - v_t_p2);
@@ -815,8 +815,8 @@
                     r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
                     r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
                     r_p_t_km: r_p1_m / 1000, r_a_t_km: r_a2_m / 1000,
-                    burn1_r_km: r_p1_m / 1000, burn1_isApogee: false,
-                    burn2_r_km: r_a2_m / 1000, burn2_isApogee: true,
+                    burn1_r_km: r_p1_m / 1000, burn1_isApoapsis: false,
+                    burn2_r_km: r_a2_m / 1000, burn2_isApoapsis: true,
                 };
             } else {
                 best_dv1 = dv1_s2;
@@ -830,8 +830,8 @@
                     r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
                     r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
                     r_p_t_km: r_p2_m / 1000, r_a_t_km: r_a1_m / 1000,
-                    burn1_r_km: r_a1_m / 1000, burn1_isApogee: true,
-                    burn2_r_km: r_p2_m / 1000, burn2_isApogee: false,
+                    burn1_r_km: r_a1_m / 1000, burn1_isApoapsis: true,
+                    burn2_r_km: r_p2_m / 1000, burn2_isApoapsis: false,
                 };
             }
 
