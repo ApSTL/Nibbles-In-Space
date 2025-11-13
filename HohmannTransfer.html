@@ -671,8 +671,8 @@
         drawEllipse(dom.orbitTransfer, data.r_p_t_km, data.r_a_t_km, g_scale);
         
         // Draw Burn Points
-        drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApoapsis);
-        drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApoapsis);
+        drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApoapsis, data.burn1_dv);
+        drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApoapsis, data.burn2_dv);
     }
 
     /**
@@ -706,10 +706,18 @@
      * Draws a circle for a burn point.
      * @param {Element} el - The SVG <circle> element.
      * @param {number} r_km - Radius of the burn (km).
-     *S     * @param {number} scale - Pixels-per-km.
+     * @param {number} scale - Pixels-per-km.
      * @param {boolean} isApoapsis - True if burn is at apoapsis (-Y), false if at periapsis (+Y).
+     * @param {number} dv - The Delta-V of the burn (m/s) for scaling.
      */
-    function drawBurnPoint(el, r_km, scale, isApoapsis) {
+    function drawBurnPoint(el, r_km, scale, isApoapsis, dv) {
+        // Scale radius based on dv
+        const minRadius = 5; // Minimum radius in pixels
+        const dvScaleFactor = 500; // m/s per additional pixel radius
+        const radius_px = minRadius + (dv / dvScaleFactor);
+        
+        el.setAttribute('r', radius_px);
+        
         const r_px = r_km * scale;
         const cy_px = isApoapsis ? -r_px : r_px; // Apoapsis at -Y, Periapsis at +Y
         
@@ -815,8 +823,8 @@
                     r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
                     r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
                     r_p_t_km: r_p1_m / 1000, r_a_t_km: r_a2_m / 1000,
-                    burn1_r_km: r_p1_m / 1000, burn1_isApoapsis: false,
-                    burn2_r_km: r_a2_m / 1000, burn2_isApoapsis: true,
+                    burn1_r_km: r_p1_m / 1000, burn1_isApoapsis: false, burn1_dv: best_dv1,
+                    burn2_r_km: r_a2_m / 1000, burn2_isApoapsis: true,  burn2_dv: best_dv2,
                 };
             } else {
                 best_dv1 = dv1_s2;
@@ -830,8 +838,8 @@
                     r_p1_km: r_p1_m / 1000, r_a1_km: r_a1_m / 1000,
                     r_p2_km: r_p2_m / 1000, r_a2_km: r_a2_m / 1000,
                     r_p_t_km: r_p2_m / 1000, r_a_t_km: r_a1_m / 1000,
-                    burn1_r_km: r_a1_m / 1000, burn1_isApoapsis: true,
-                    burn2_r_km: r_p2_m / 1000, burn2_isApoapsis: false,
+                    burn1_r_km: r_a1_m / 1000, burn1_isApoapsis: true,  burn1_dv: best_dv1,
+                    burn2_r_km: r_p2_m / 1000, burn2_isApoapsis: false, burn2_dv: best_dv2,
                 };
             }
 
