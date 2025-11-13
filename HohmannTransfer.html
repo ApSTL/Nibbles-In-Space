@@ -767,8 +767,8 @@
      */
     function drawBurnPoint(el, r_km, scale, isApoapsis, dv) {
         // Formula to scale radius: minimum radius + scaled DV
-        const minRadius = 5; 
-        const dvScaleFactor = 500; // 500 m/s for every 1 pixel increase in radius
+        const minRadius = 0; 
+        const dvScaleFactor = 200; // 200 m/s for every 1 pixel increase in radius
         const radius_px = minRadius + (dv / dvScaleFactor);
         
         el.setAttribute('r', radius_px);
