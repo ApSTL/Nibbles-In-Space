@@ -29,7 +29,7 @@
             position: absolute; 
 			top: 0px;
             left: 0; 
-			z-index: 10; /* Ensures panel is above map */
+			z-index: 10; 
             display: flex;
             align-items: flex-start;
             flex-shrink: 0;
@@ -37,23 +37,23 @@
 
         #info {
             width: 300px;
-            max-height: calc(100vh - 25px); /* Full height minus some margin */
-            overflow-y: auto; /* Allows panel to scroll if content is long */
+            max-height: calc(100vh - 25px); 
+            overflow-y: auto; 
             margin: 5px;
 			margin-left: 15px;
             padding: 5px;
-            background: rgba(0, 0, 0, 0.1); /* Semi-transparent background */
+            background: rgba(0, 0, 0, 0.1); 
             border-radius: 10px;
-            backdrop-filter: blur(3px); /* Frosted glass effect */
+            backdrop-filter: blur(3px); 
             box-shadow: 0 0 15px rgba(0,0,0,0.1);
-            border: 1px solid rgba(190, 153, 5, 1); /* Gold border */
+            border: 1px solid rgba(190, 153, 5, 1); 
             transition: all 0.35s ease-in-out;
-            transform: translateX(0); /* Initial state: visible */
+            transform: translateX(0); 
         }
 
         /* Collapsed state for the panel */
         #info.collapsed {
-            transform: translateX(-100%); /* Slides panel off-screen */
+            transform: translateX(-100%); 
             width: 0px;
             padding-left: 0;
             padding-right: 0;
@@ -65,7 +65,7 @@
         #toggle-button {
             position: absolute;
             top: 2%;
-            left: 100%; /* Sits on the right edge of the panel */
+            left: 100%; 
             transform: translateX(0);
             width: 48px;
             height: 48px;
@@ -87,7 +87,7 @@
         /* Style for toggle button when panel is collapsed */
         #info.collapsed + #toggle-button {
             transform: translateX(-10%) translateY(250%);
-			background: #ed1248; /* Changes color to red when hidden */
+			background: #ed1248; 
         }
         
         /* --- Panel Content: Headers & Controls --- */
@@ -137,7 +137,7 @@
             border-radius: 5px;
             padding: 5px;
             font-family: "Roboto Mono", monospace;
-            box-sizing: border-box; /* Ensures padding doesn't affect width */
+            box-sizing: border-box; 
             font-size: 0.9em;
         }
         
@@ -174,7 +174,7 @@
             padding: 6px; 
             margin-top: 5px; 
             border-radius: 4px; 
-            display: none; /* Hidden by default */
+            display: none; 
             line-height: 1.4;
         }
         .warning.red { display: block; background-color: #5d1a1a; color: #ff5252; }
@@ -198,7 +198,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: transparent; /* See-through to body background */
+            background-color: transparent; 
         }
 
         /* --- Visualization Element Styles --- */
@@ -212,28 +212,28 @@
             fill: none;
             stroke-width: 1.5px;
             stroke-dasharray: 4, 4;
-            display: none; /* Hidden by default */
+            display: none; 
         }
         
         .orbit-initial {
-            stroke: #BE9905; /* Yellow */
+            stroke: #BE9905; 
             stroke-dasharray: none;
         }
 
         .orbit-target {
-            stroke: #ed1248; /* Red */
+            stroke: #ed1248; 
 			stroke-dasharray: none;
         }
 
         .orbit-transfer {
-            stroke: #1a5dad; /* Blue */
+            stroke: #1a5dad; 
         }
 
         .burn-point {
             fill: #BE9905;
             stroke: #fff;
             stroke-width: 1.5px;
-            display: none; /* Hidden by default */
+            display: none; 
         }
         
         /* Standard Button */
@@ -251,7 +251,7 @@
             margin-top: 10px;
         }
         .sim-button:hover {
-            background-color: #ffd966; /* Lighter gold on hover */
+            background-color: #ffd966; 
         }
         .sim-button:disabled {
             background-color: #555;
@@ -367,46 +367,48 @@
 </div>
 
 <script>
-    'use strict'; // Enforce stricter parsing and error handling
+    'use strict'; 
 
     // --- Application Constants ---
     
-    // Physical constants
-    const G_CONST = 6.67430e-11; // Gravitational constant, N(m/kg)^2
-    const G0 = 9.80665; // Standard gravity (m/s^2) for Isp calc
+    // Gravitational constant (N * (m/kg)^2)
+    const G_CONST = 6.67430e-11; 
+    // Standard gravity (m/s^2) used for specific impulse (Isp) calculation
+    const G0 = 9.80665; 
+    // Mass of the Sun (kg) for calculating custom body Sphere of Influence (SOI)
     const SUN_MASS_KG = 1.989e30;
+    // Astronomical Unit to Kilometers conversion factor
     const AU_TO_KM = 149597870.7;
     
-    // Data for central bodies
+    // Data for pre-defined central bodies
     const CENTRAL_BODIES = {
-        // name: { name, mass_kg, radius_km, peri_au, apo_au, soi_km, color }
-        // peri_au/apo_au are for the body's orbit around the Sun
-        "earth":   { name: "Earth",   mass_kg: 5.972e24,  radius_km: 6378.137, peri_au: 0.983, apo_au: 1.017, soi_km: 925000,   color: "#336699" },
-        // For Moon, peri/apo are Perigee/Apogee from Earth in km
-        "moon":    { name: "Moon",    mass_kg: 7.347e22,  radius_km: 1737.4,   peri_au: 363300,  apo_au: 405500,  soi_km: 66100,    color: "#aaaaaa" },
-        "mercury": { name: "Mercury", mass_kg: 3.301e23,  radius_km: 2439.7,   peri_au: 0.307, apo_au: 0.467, soi_km: 112000,   color: "#b0a08a" },
-        "venus":   { name: "Venus",   mass_kg: 4.867e24,  radius_km: 6051.8,   peri_au: 0.718, apo_au: 0.728, soi_km: 616000,   color: "#d0c0a0" },
-        "mars":    { name: "Mars",    mass_kg: 6.417e23,  radius_km: 3389.5,   peri_au: 1.382, apo_au: 1.666, soi_km: 577000,   color: "#c1440e" },
-        "jupiter": { name: "Jupiter", mass_kg: 1.898e27,  radius_km: 69911,    peri_au: 4.950, apo_au: 5.458, soi_km: 48200000, color: "#c0a080" },
-        "saturn":  { name: "Saturn",  mass_kg: 5.683e26,  radius_km: 58232,    peri_au: 9.048, apo_au: 10.12, soi_km: 54800000, color: "#f0d0a0" },
-        "uranus":  { name: "Uranus",  mass_kg: 8.681e25,  radius_km: 25362,    peri_au: 18.38, apo_au: 20.08, soi_km: 51800000, color: "#a0c0c0" },
-        "neptune": { name: "Neptune", mass_kg: 1.024e26,  radius_km: 24622,    peri_au: 29.77, apo_au: 30.44, soi_km: 86800000, color: "#4060c0" },
-        "custom":  { name: "Custom",  mass_kg: 5.972e24,  radius_km: 6378.137, peri_au: 1.0,   apo_au: 1.0,   soi_km: 0,        color: "#BE9905" } // Default to Earth
+        // name: { name, mass_kg, radius_km, peri_au/r_p_km, apo_au/r_a_km, soi_km, color }
+        // For planets, peri/apo are their orbital distance from the Sun in AU (Perihelion/Aphelion)
+        // For the Moon, peri/apo are Perigee/Apogee from Earth in km
+        "earth":   { name: "Earth",   mass_kg: 5.972e24,  radius_km: 6378.137, peri_val: 0.983, apo_val: 1.017, soi_km: 925000,   color: "#336699" },
+        "moon":    { name: "Moon",    mass_kg: 7.347e22,  radius_km: 1737.4,   peri_val: 363300,  apo_val: 405500,  soi_km: 66100,    color: "#aaaaaa" },
+        "mercury": { name: "Mercury", mass_kg: 3.301e23,  radius_km: 2439.7,   peri_val: 0.307, apo_val: 0.467, soi_km: 112000,   color: "#b0a08a" },
+        "venus":   { name: "Venus",   mass_kg: 4.867e24,  radius_km: 6051.8,   peri_val: 0.718, apo_val: 0.728, soi_km: 616000,   color: "#d0c0a0" },
+        "mars":    { name: "Mars",    mass_kg: 6.417e23,  radius_km: 3389.5,   peri_val: 1.382, apo_val: 1.666, soi_km: 577000,   color: "#c1440e" },
+        "jupiter": { name: "Jupiter", mass_kg: 1.898e27,  radius_km: 69911,    peri_val: 4.950, apo_val: 5.458, soi_km: 48200000, color: "#c0a080" },
+        "saturn":  { name: "Saturn",  mass_kg: 5.683e26,  radius_km: 58232,    peri_val: 9.048, apo_val: 10.12, soi_km: 54800000, color: "#f0d0a0" },
+        "uranus":  { name: "Uranus",  mass_kg: 8.681e25,  radius_km: 25362,    peri_val: 18.38, apo_val: 20.08, soi_km: 51800000, color: "#a0c0c0" },
+        "neptune": { name: "Neptune", mass_kg: 1.024e26,  radius_km: 24622,    peri_val: 29.77, apo_val: 30.44, soi_km: 86800000, color: "#4060c0" },
+        "custom":  { name: "Custom",  mass_kg: 5.972e24,  radius_km: 6378.137, peri_val: 1.0,   apo_val: 1.0,   soi_km: 0,        color: "#BE9905" } 
     };
 
 
     // --- Global State ---
     
-    // Visualization variables
-    let g_scale = 1; // Global pixel-per-km scale
-    let g_transferData = null; // Holds the results of the last calculation
+    let g_scale = 1; // Global visualization scale (pixels per km)
+    let g_transferData = null; // Stores results and visualization parameters
     
-    // Dynamic physics parameters
-    let CURRENT_BODY_RADIUS_KM = CENTRAL_BODIES.earth.radius_km;
-    let CURRENT_GM_M3_S2 = G_CONST * CENTRAL_BODIES.earth.mass_kg;
+    // Dynamic physics parameters for the currently selected central body
+    let CURRENT_BODY_RADIUS_KM;
+    let CURRENT_GM_M3_S2; // Gravitational parameter (GM = G * Mass) in m^3/s^2
 
     /**
-     * Cache of all DOM elements for quick access.
+     * Cache of all DOM elements.
      */
     const dom = {
         infoDiv: document.getElementById('info'),
@@ -437,19 +439,17 @@
         finalMass: document.getElementById('final-mass'),
         isp: document.getElementById('isp'),
         
-        // Button
+        // Warnings/Buttons
         calcBtn: document.getElementById('calc-btn'),
         warning: document.getElementById('calc-warning'),
         biEllipticWarning: document.getElementById('bi-elliptic-warning'),
         
-        // Results - Delta-V
+        // Results
         typeVal: document.getElementById('type-val'),
         dv1Val: document.getElementById('dv1-val'),
         dv2Val: document.getElementById('dv2-val'),
         totalDvVal: document.getElementById('total-dv-val'),
         timeVal: document.getElementById('time-val'),
-        
-        // Results - Mass
         propMassVal: document.getElementById('prop-mass-val'),
         initMassVal: document.getElementById('init-mass-val'),
 
@@ -463,17 +463,78 @@
     };
 
     /**
+     * Calculates the velocity at a given radius in an orbit.
+     * v = sqrt(GM * (2/r - 1/a))
+     * @param {number} r_m - Current radius from center (meters).
+     * @param {number} a_m - Semi-major axis of orbit (meters). Use Infinity for escape velocity.
+     * @returns {number} Velocity in m/s.
+     */
+    function getVelocity(r_m, a_m) {
+        return Math.sqrt(CURRENT_GM_M3_S2 * ((2 / r_m) - (1 / a_m)));
+    }
+    
+    /**
+     * Calculates the total Delta-V for a bi-elliptic transfer.
+     * @param {number} r_A - Radius of the first burn point (meters).
+     * @param {number} v_A_initial - Velocity in the initial orbit at r_A (m/s).
+     * @param {number} r_D - Radius of the third burn point (meters).
+     * @param {number} v_D_final - Velocity in the final orbit at r_D (m/s).
+     * @param {number} rb - The intermediate apoapsis radius (meters).
+     * @param {number} mu - Gravitational parameter (GM) (m^3/s^2).
+     * @returns {number} Total Delta-V (m/s). Returns Infinity if transfer is geometrically invalid.
+     */
+    function getBiEllipticDV(r_A, v_A_initial, r_D, v_D_final, rb, mu) {
+        if (rb <= Math.max(r_A, r_D)) { 
+            return Infinity; 
+        }
+        
+        const a_t1 = (r_A + rb) / 2; // Semi-major axis of first transfer ellipse
+        const a_t2 = (r_D + rb) / 2; // Semi-major axis of second transfer ellipse
+        
+        // Calculate velocities on the transfer ellipses
+        const v_t1_A = Math.sqrt(mu * ((2 / r_A) - (1 / a_t1))); 
+        const v_t1_B = Math.sqrt(mu * ((2 / rb) - (1 / a_t1))); 
+        const v_t2_B = Math.sqrt(mu * ((2 / rb) - (1 / a_t2))); 
+        const v_t2_D = Math.sqrt(mu * ((2 / r_D) - (1 / a_t2))); 
+        
+        // Calculate the three burns
+        const dv1 = Math.abs(v_t1_A - v_A_initial); // Burn 1 (at r_A)
+        const dv2 = Math.abs(v_t2_B - v_t1_B);     // Burn 2 (at intermediate apoapsis rb)
+        const dv3 = Math.abs(v_t2_D - v_D_final);     // Burn 3 (at r_D)
+        
+        return dv1 + dv2 + dv3;
+    }
+    
+    /**
+     * Calculates the total time for a bi-elliptic transfer.
+     * Time = Pi * sqrt(a_t1^3 / GM) + Pi * sqrt(a_t2^3 / GM)
+     * @param {number} r_A - Radius of the first burn (meters).
+     * @param {number} r_D - Radius of the third burn (meters).
+     * @param {number} rb - The intermediate apoapsis radius (meters).
+     * @param {number} mu - Gravitational parameter (GM) (m^3/s^2).
+     * @returns {number} Total time in seconds.
+     */
+    function getBiEllipticTime_s(r_A, r_D, rb, mu) {
+        const a_t1 = (r_A + rb) / 2;
+        const a_t2 = (r_D + rb) / 2;
+        const time1 = Math.PI * Math.sqrt(Math.pow(a_t1, 3) / mu); // time for 1st half-ellipse
+        const time2 = Math.PI * Math.sqrt(Math.pow(a_t2, 3) / mu); // time for 2nd half-ellipse
+        return time1 + time2;
+    }
+
+
+    /**
      * Main initialization function.
      */
     function init() {
         setupUI();
         updateCentralBody(); // Set initial body (Earth)
-        onWindowResize(); // Set initial size
+        onWindowResize(); // Set initial size and center map
         calculateAndDraw(); // Run with default values
     }
     
     /**
-     * Updates the current central body based on user selection.
+     * Updates the current central body physics and UI display.
      */
     function updateCentralBody() {
         const selectedKey = dom.centralBodySelect.value;
@@ -483,26 +544,23 @@
         if (selectedKey === "custom") {
             dom.customBodyGroup.style.display = 'block';
             
-            // Read custom values
+            // Read custom values from inputs
             const mass_kg = parseFloat(dom.customMassInput.value) || CENTRAL_BODIES.earth.mass_kg;
             const radius_km = parseFloat(dom.customRadiusInput.value) || CENTRAL_BODIES.earth.radius_km;
             const peri_au = parseFloat(dom.customPeriAuInput.value) || 1.0;
             const apo_au = parseFloat(dom.customApoAuInput.value) || 1.0;
             
-            // Update the "custom" entry in the data object
             body = CENTRAL_BODIES.custom;
             body.mass_kg = mass_kg;
             body.radius_km = radius_km;
-            body.peri_au = peri_au;
-            body.apo_au = apo_au;
-
-            // Calculate SOI for custom body (assumes Sun orbit)
-            // SOI ≈ a * (m / M)^(2/5)
+            
+            // Calculate SOI for custom body (assumes orbit around the Sun)
+            // SOI ≈ a * (m / M_sun)^(2/5)
             const a_au = (peri_au + apo_au) / 2.0;
             const a_km = a_au * AU_TO_KM;
             const soi_km = a_km * Math.pow(mass_kg / SUN_MASS_KG, 0.4);
             
-            // Set display values
+            // Set display values for custom body's orbit
             peri_val = `${peri_au.toFixed(3)} au`;
             apo_val = `${apo_au.toFixed(3)} au`;
             peri_label = "Perihelion";
@@ -514,15 +572,15 @@
             body = CENTRAL_BODIES[selectedKey];
             
             if (selectedKey === "moon") {
-                // Moon is special case, uses km from Earth
-                peri_val = `${(body.peri_au / 1000).toFixed(0)}k km`;
-                apo_val = `${(body.apo_au / 1000).toFixed(0)}k km`;
+                // Moon orbits Earth: display distance in km and use Perigee/Apogee labels
+                peri_val = `${(body.peri_val / 1000).toFixed(0)}k km`;
+                apo_val = `${(body.apo_val / 1000).toFixed(0)}k km`;
                 peri_label = "Perigee";
                 apo_label = "Apogee";
             } else {
-                // All other bodies are planets orbiting Sun (AU)
-                peri_val = `${body.peri_au.toFixed(3)} au`;
-                apo_val = `${body.apo_au.toFixed(3)} au`;
+                // Planets orbit Sun: display distance in AU and use Perihelion/Aphelion labels
+                peri_val = `${body.peri_val.toFixed(3)} au`;
+                apo_val = `${body.apo_val.toFixed(3)} au`;
                 peri_label = "Perihelion";
                 apo_label = "Aphelion";
             }
@@ -541,42 +599,39 @@
         dom.bodyApoVal.textContent = apo_val;
         dom.bodySoiVal.textContent = `${(soi_val_km / 1000).toFixed(0)}k km`;
         
-        // Update visualization color
+        // Update visualization color and size
         dom.centralBody.style.fill = body.color;
-        
-        // When the body changes, the old results are invalid
-        clearResults();
-        
-        // Also, re-draw the central body with the new radius
         dom.centralBody.setAttribute('r', CURRENT_BODY_RADIUS_KM * g_scale);
+        
+        // Clear old results as physics constants have changed
+        clearResults();
     }
 
 
     /**
-     * Sets up all UI event listeners.
+     * Sets up all UI event listeners for interaction and data input.
      */
     function setupUI() {
-        // --- Panel Toggle Button ---
+        // Toggle the control panel visibility
         dom.toggleButton.addEventListener('click', () => {
             dom.infoDiv.classList.toggle('collapsed');
             dom.toggleButton.textContent = dom.infoDiv.classList.contains('collapsed') ? '▶' : '◀';
         });
 
-        // --- Window Resize ---
+        // Recalculate scale and redraw on window resize
         window.addEventListener('resize', onWindowResize);
         
-        // --- Calculate Button ---
+        // Main calculation trigger
         dom.calcBtn.addEventListener('click', calculateAndDraw);
         
-        // --- Central Body Listeners ---
+        // Listen for changes to central body selection or custom inputs
         dom.centralBodySelect.addEventListener('change', updateCentralBody);
         dom.customMassInput.addEventListener('input', updateCentralBody);
         dom.customRadiusInput.addEventListener('input', updateCentralBody);
         dom.customPeriAuInput.addEventListener('input', updateCentralBody);
         dom.customApoAuInput.addEventListener('input', updateCentralBody);
         
-        // --- Input Listeners ---
-        // Clear results if inputs change
+        // Clear results when orbit or rocket inputs change
         const inputs = [dom.initPeriapsis, dom.initApoapsis, dom.targetPeriapsis, dom.targetApoapsis, dom.finalMass, dom.isp];
         inputs.forEach(input => {
             input.addEventListener('input', clearResults);
@@ -584,9 +639,10 @@
     }
 
     /**
-     * Clears all calculation results and hides the visualization.
+     * Resets all calculated results and hides the visualization elements.
      */
     function clearResults() {
+        // Reset displayed values
         dom.typeVal.textContent = 'N/A';
         dom.dv1Val.textContent = 'N/A';
         dom.dv2Val.textContent = 'N/A';
@@ -595,14 +651,15 @@
         dom.propMassVal.textContent = 'N/A';
         dom.initMassVal.textContent = 'N/A';
         
+        // Hide warnings
         dom.warning.className = 'warning';
         dom.warning.textContent = '';
         dom.biEllipticWarning.style.display = 'none';
         dom.biEllipticWarning.textContent = '';
         
-        g_transferData = null; // Clear data
+        g_transferData = null; // Clear calculation data
         
-        // Hide orbits and burns
+        // Hide SVG orbits and burns
         dom.orbitInitial.style.display = 'none';
         dom.orbitTarget.style.display = 'none';
         dom.orbitTransfer.style.display = 'none';
@@ -611,7 +668,7 @@
     }
 
     /**
-     * Handles window resize events to keep the visualization centered and scaled.
+     * Adjusts the SVG canvas and visualization group translation on window resize.
      */
     function onWindowResize() {
         const w = dom.vizContainer.clientWidth;
@@ -620,17 +677,17 @@
         dom.vizSvg.setAttribute("width", w);
         dom.vizSvg.setAttribute("height", h);
         
-        // Center the visualization group
+        // Center the visualization group at the center of the SVG
         dom.vizGroup.setAttribute("transform", `translate(${w / 2}, ${h / 2})`);
         
-        // If we have data, rescale and redraw
+        // Recalculate scale and redraw if data exists
         if (g_transferData) {
             updateScaleAndRedraw();
         }
     }
 
     /**
-     * Updates the global scale factor and redraws all elements.
+     * Determines the optimal global scale factor and calls the redraw function.
      */
     function updateScaleAndRedraw() {
         if (!g_transferData) return;
@@ -638,47 +695,45 @@
         const w = dom.vizContainer.clientWidth;
         const h = dom.vizContainer.clientHeight;
 
-        // Find the largest radius in the scene (in km)
+        // Determine the maximum orbital radius (in km) to be displayed
         const max_r_km = Math.max(
             g_transferData.r_a1_km, 
             g_transferData.r_a2_km, 
             g_transferData.r_a_t_km
         );
 
-        // Calculate scale to fit 90% of the smallest screen dimension
-        const max_dim = Math.min(w, h) * 0.45; // 0.45 since it's radius
+        // Calculate scale to fit 90% of the smallest screen dimension for radius
+        const max_dim = Math.min(w, h) * 0.45; 
         
-        g_scale = max_dim / max_r_km; // pixels per km
+        g_scale = max_dim / max_r_km; // New pixels per km scale
         
-        // Redraw all elements with the new scale
         drawAllElements();
     }
     
     /**
-     * Draws all SVG elements based on global data and scale.
+     * Draws or updates all SVG elements based on the current data and scale.
      */
     function drawAllElements() {
         if (!g_transferData) return;
         
         const data = g_transferData;
 
-        // Draw Central Body
+        // Central body radius updates with the new scale
         dom.centralBody.setAttribute('r', CURRENT_BODY_RADIUS_KM * g_scale);
         
-        // Draw Orbits
+        // Draw all three ellipses (initial, target, transfer)
         drawEllipse(dom.orbitInitial, data.r_p1_km, data.r_a1_km, g_scale);
         drawEllipse(dom.orbitTarget, data.r_p2_km, data.r_a2_km, g_scale);
         drawEllipse(dom.orbitTransfer, data.r_p_t_km, data.r_a_t_km, g_scale);
         
-        // Draw Burn Points
+        // Draw burn points, scaling size by the Delta-V of the burn
         drawBurnPoint(dom.burn1, data.burn1_r_km, g_scale, data.burn1_isApoapsis, data.burn1_dv);
         drawBurnPoint(dom.burn2, data.burn2_r_km, g_scale, data.burn2_isApoapsis, data.burn2_dv);
     }
 
     /**
-     * Draws an SVG ellipse for an orbit.
-     * Puts body at the focus (0,0).
-     * Periapsis is at (0, +r_p), Apoapsis is at (0, -r_a).
+     * Draws an SVG ellipse representing an orbit.
+     * The central body is at the focus (0,0). The ellipse is vertically oriented.
      * @param {Element} el - The SVG <ellipse> element.
      * @param {number} r_p_km - Periapsis radius (km).
      * @param {number} r_a_km - Apoapsis radius (km).
@@ -688,38 +743,38 @@
         const r_p_px = r_p_km * scale;
         const r_a_px = r_a_km * scale;
 
-        const a_px = (r_p_px + r_a_px) / 2; // Semi-major axis
-        const c_px = (r_a_px - r_p_px) / 2; // Focus-to-center distance
-        const e = (c_px / a_px) || 0; // Eccentricity, handle divide-by-zero for circular
-        const b_px = a_px * Math.sqrt(1 - e * e); // Semi-minor axis
+        const a_px = (r_p_px + r_a_px) / 2; // Semi-major axis (vertical radius)
+        const c_px = (r_a_px - r_p_px) / 2; // Distance from focus (center body) to ellipse center
+        const e = (c_px / a_px) || 0; // Eccentricity
+        const b_px = a_px * Math.sqrt(1 - e * e); // Semi-minor axis (horizontal radius)
         
-        const cy_px = -c_px; // Center of ellipse Y-coord (Periapsis at +Y)
+        const cy_px = -c_px; // Center of ellipse Y-coord (Shifts center up so focus is at 0,0)
         
         el.setAttribute('cx', 0);
         el.setAttribute('cy', cy_px);
-        el.setAttribute('rx', b_px); // Semi-minor axis is now horizontal radius
-        el.setAttribute('ry', a_px); // Semi-major axis is now vertical radius
+        el.setAttribute('rx', b_px); 
+        el.setAttribute('ry', a_px); 
         el.style.display = 'block';
     }
 
     /**
-     * Draws a circle for a burn point.
+     * Draws an SVG circle for a burn point.
      * @param {Element} el - The SVG <circle> element.
-     * @param {number} r_km - Radius of the burn (km).
+     * @param {number} r_km - Radius of the burn location (km).
      * @param {number} scale - Pixels-per-km.
-     * @param {boolean} isApoapsis - True if burn is at apoapsis (-Y), false if at periapsis (+Y).
-     * @param {number} dv - The Delta-V of the burn (m/s) for scaling.
+     * @param {boolean} isApoapsis - True if burn is at apoapsis (y < 0), false if at periapsis (y > 0).
+     * @param {number} dv - The Delta-V of the burn (m/s).
      */
     function drawBurnPoint(el, r_km, scale, isApoapsis, dv) {
-        // Scale radius based on dv
-        const minRadius = 5; // Minimum radius in pixels
-        const dvScaleFactor = 500; // m/s per additional pixel radius
+        // Formula to scale radius: minimum radius + scaled DV
+        const minRadius = 5; 
+        const dvScaleFactor = 500; // 500 m/s for every 1 pixel increase in radius
         const radius_px = minRadius + (dv / dvScaleFactor);
         
         el.setAttribute('r', radius_px);
         
         const r_px = r_km * scale;
-        const cy_px = isApoapsis ? -r_px : r_px; // Apoapsis at -Y, Periapsis at +Y
+        const cy_px = isApoapsis ? -r_px : r_px; // Apoapsis on the negative Y axis
         
         el.setAttribute('cx', 0);
         el.setAttribute('cy', cy_px);
@@ -727,23 +782,14 @@
     }
 
     /**
-     * Helper to get velocity at a point in an orbit.
-     * @param {number} r_m - Current radius from center (meters).
-     * @param {number} a_m - Semi-major axis of orbit (meters).
-     * @returns {number} Velocity in m/s.
-     */
-    function getVelocity(r_m, a_m) {
-        return Math.sqrt(CURRENT_GM_M3_S2 * ((2 / r_m) - (1 / a_m)));
-    }
-
-    /**
-     * The main calculation function.
+     * The main transfer calculation function.
      */
     function calculateAndDraw() {
-        clearResults(); // Clear previous results first
+        clearResults(); 
         
         try {
             // --- 1. Get and Validate Inputs ---
+            // Radii inputs are altitude, convert to radius from center later
             const r_p1_alt_km = parseFloat(dom.initPeriapsis.value);
             const r_a1_alt_km = parseFloat(dom.initApoapsis.value);
             const r_p2_alt_km = parseFloat(dom.targetPeriapsis.value);
@@ -751,6 +797,7 @@
             const finalMass_kg = parseFloat(dom.finalMass.value);
             const isp_s = parseFloat(dom.isp.value);
             
+            // Basic input validation
             if ([r_p1_alt_km, r_a1_alt_km, r_p2_alt_km, r_a2_alt_km, finalMass_kg, isp_s].some(isNaN)) {
                 throw new Error("All input fields must be valid numbers.");
             }
@@ -760,7 +807,7 @@
                  throw new Error("Orbits below 100km altitude are not stable.");
             }
 
-            // Convert to radii in METERS for physics
+            // Convert altitude (km) to radius (meters)
             const r_p1_m = (r_p1_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
             const r_a1_m = (r_a1_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
             const r_p2_m = (r_p2_alt_km + CURRENT_BODY_RADIUS_KM) * 1000;
@@ -770,52 +817,54 @@
             const a1_m = (r_p1_m + r_a1_m) / 2; // Initial semi-major axis
             const a2_m = (r_p2_m + r_a2_m) / 2; // Target semi-major axis
 
-            const v_i_p1 = getVelocity(r_p1_m, a1_m); // Initial vel at periapsis 1
-            const v_i_a1 = getVelocity(r_a1_m, a1_m); // Initial vel at apoapsis 1
-            const v_f_p2 = getVelocity(r_p2_m, a2_m); // Final vel at periapsis 2
-            const v_f_a2 = getVelocity(r_a2_m, a2_m); // Final vel at apoapsis 2
+            // Velocities at the four possible transfer points
+            const v_i_p1 = getVelocity(r_p1_m, a1_m); 
+            const v_i_a1 = getVelocity(r_a1_m, a1_m); 
+            const v_f_p2 = getVelocity(r_p2_m, a2_m); 
+            const v_f_a2 = getVelocity(r_a2_m, a2_m); 
 
-            // --- 3. Calculate Two Possible Transfers ---
+            // --- 3. Calculate Two Possible Bi-tangential Transfers (Hohmann-style) ---
             
-            // Scenario 1: Periapsis-to-Apoapsis Transfer (p1 -> a2)
+            // Scenario 1 (S1): Initial Periapsis (r_p1) to Target Apoapsis (r_a2)
             let dv1_s1 = Infinity, dv2_s1 = Infinity, total_dv_s1 = Infinity;
             let a_t1_m = 0;
-            if (r_a2_m >= r_p1_m) { // Check if transfer is possible
-                a_t1_m = (r_p1_m + r_a2_m) / 2; // Transfer orbit semi-major axis
-                const v_t_p1 = getVelocity(r_p1_m, a_t1_m); // Transfer vel at periapsis
-                const v_t_a2 = getVelocity(r_a2_m, a_t1_m); // Transfer vel at apoapsis
+            if (r_a2_m >= r_p1_m) { // Transfer is possible if r_a2 >= r_p1
+                a_t1_m = (r_p1_m + r_a2_m) / 2; 
+                const v_t_p1 = getVelocity(r_p1_m, a_t1_m); // Transfer vel at r_p1
+                const v_t_a2 = getVelocity(r_a2_m, a_t1_m); // Transfer vel at r_a2
                 
                 dv1_s1 = Math.abs(v_t_p1 - v_i_p1);
                 dv2_s1 = Math.abs(v_f_a2 - v_t_a2);
                 total_dv_s1 = dv1_s1 + dv2_s1;
             }
 
-            // Scenario 2: Apoapsis-to-Periapsis Transfer (a1 -> p2)
+            // Scenario 2 (S2): Initial Apoapsis (r_a1) to Target Periapsis (r_p2)
             let dv1_s2 = Infinity, dv2_s2 = Infinity, total_dv_s2 = Infinity;
             let a_t2_m = 0;
-            if (r_a1_m >= r_p2_m) { // Check if transfer is possible
-                a_t2_m = (r_a1_m + r_p2_m) / 2; // Transfer orbit semi-major axis
-                const v_t_a1 = getVelocity(r_a1_m, a_t2_m); // Transfer vel at apoapsis
-                const v_t_p2 = getVelocity(r_p2_m, a_t2_m); // Transfer vel at periapsis
+            if (r_a1_m >= r_p2_m) { // Transfer is possible if r_a1 >= r_p2
+                a_t2_m = (r_a1_m + r_p2_m) / 2; 
+                const v_t_a1 = getVelocity(r_a1_m, a_t2_m); // Transfer vel at r_a1
+                const v_t_p2 = getVelocity(r_p2_m, a_t2_m); // Transfer vel at r_p2
 
                 dv1_s2 = Math.abs(v_t_a1 - v_i_a1);
                 dv2_s2 = Math.abs(v_f_p2 - v_t_p2);
                 total_dv_s2 = dv1_s2 + dv2_s2;
             }
 
-            // --- 4. Select Best Transfer ---
+            // --- 4. Select Best Transfer (Minimum Delta-V) ---
             let best_dv1, best_dv2, best_total_dv, transferType, a_t_m;
-            let r_A, r_D, v_A_initial, v_D_final; // Radii and Velocities of the two burns
-            
+            let r_A, r_D, v_A_initial, v_D_final; // Burn radii and velocities for Bi-elliptic check
+
             if (total_dv_s1 === Infinity && total_dv_s2 === Infinity) {
-                throw new Error("No co-axial bi-tangential transfer is possible.");
+                throw new Error("No co-axial bi-tangential transfer is possible (orbits cross).");
             }
 
             if (total_dv_s1 <= total_dv_s2) {
+                // S1 is the optimal Hohmann-style transfer
                 best_dv1 = dv1_s1;
                 best_dv2 = dv2_s1;
                 best_total_dv = total_dv_s1;
-                transferType = "Periapsis -> Apoapsis";
+                transferType = "Periapsis \u2192 Apoapsis";
                 a_t_m = a_t1_m;
                 r_A = r_p1_m; v_A_initial = v_i_p1;
                 r_D = r_a2_m; v_D_final = v_f_a2;
@@ -827,10 +876,11 @@
                     burn2_r_km: r_a2_m / 1000, burn2_isApoapsis: true,  burn2_dv: best_dv2,
                 };
             } else {
+                // S2 is the optimal Hohmann-style transfer
                 best_dv1 = dv1_s2;
                 best_dv2 = dv2_s2;
                 best_total_dv = total_dv_s2;
-                transferType = "Apoapsis -> Periapsis";
+                transferType = "Apoapsis \u2192 Periapsis";
                 a_t_m = a_t2_m;
                 r_A = r_a1_m; v_A_initial = v_i_a1;
                 r_D = r_p2_m; v_D_final = v_f_p2;
@@ -849,9 +899,7 @@
             const initialMass_kg = finalMass_kg * massRatio;
             const propellantMass_kg = initialMass_kg - finalMass_kg;
             
-            // Transfer time is half the period of the transfer orbit
-            // T = 2*pi * sqrt(a^3 / GM)
-            // Time = T/2 = pi * sqrt(a^3 / GM)
+            // Transfer time is half the period of the transfer ellipse
             const transfer_time_s = Math.PI * Math.sqrt(Math.pow(a_t_m, 3) / CURRENT_GM_M3_S2);
             const transfer_time_min = transfer_time_s / 60.0;
 
@@ -868,112 +916,55 @@
             // --- 7. Draw Visualization ---
             updateScaleAndRedraw();
             
-            // --- 8. Bi-elliptic Check (NEW LOGIC) ---
-            // This logic correctly compares the calculated bi-tangential (Hohmann-style)
-            // transfer DV against a bi-elliptic transfer between the SAME start
-            // and end points (velocities and radii).
-            
-            /**
-             * Calculates the DV for a bi-elliptic transfer between two points in an orbit.
-             * @param {number} r_A - Radius of the first burn (meters)
-             * @param {number} v_A_initial - Velocity in the initial orbit at r_A (m/s)
-             * @param {number} r_D - Radius of the third burn (meters)
-             * @param {number} v_D_final - Velocity in the final orbit at r_D (m/s)
-             * @param {number} rb - The intermediate apoapsis radius (meters)
-             * @param {number} mu - Gravitational parameter (m^3/s^2)
-             * @returns {number} Total Delta-V (m/s)
-             */
-            function getBiEllipticDV(r_A, v_A_initial, r_D, v_D_final, rb, mu) {
-                if (rb <= Math.max(r_A, r_D)) { // rb must be greater than outer radius
-                    return Infinity; // Not a valid BE transfer
-                }
-                
-                const a_t1 = (r_A + rb) / 2; // Semi-major axis of first transfer
-                const a_t2 = (r_D + rb) / 2; // Semi-major axis of second transfer
-                
-                const v_t1_A = getVelocity(r_A, a_t1); // Vel at r_A on transfer 1
-                const v_t1_B = getVelocity(rb, a_t1); // Vel at rb on transfer 1
-                
-                const v_t2_B = getVelocity(rb, a_t2); // Vel at rb on transfer 2
-                const v_t2_D = getVelocity(r_D, a_t2); // Vel at r_D on transfer 2
-                
-                const dv1 = Math.abs(v_t1_A - v_A_initial); // Burn 1 (at r_A)
-                const dv2 = Math.abs(v_t2_B - v_t1_B);     // Burn 2 (at rb)
-                const dv3 = Math.abs(v_t2_D - v_D_final);     // Burn 3 (at r_D)
-                
-                return dv1 + dv2 + dv3;
-            }
-            
-            /**
-             * Calculates the time for a bi-elliptic transfer.
-             * @param {number} r_A - Radius of the first burn (meters)
-             * @param {number} r_D - Radius of the third burn (meters)
-             * @param {number} rb - The intermediate apoapsis radius (meters)
-             * @param {number} mu - Gravitational parameter (m^3/s^2)
-             * @returns {number} Total time (seconds)
-             */
-            function getBiEllipticTime_s(r_A, r_D, rb, mu) {
-                const a_t1 = (r_A + rb) / 2;
-                const a_t2 = (r_D + rb) / 2;
-                const time1 = Math.PI * Math.sqrt(Math.pow(a_t1, 3) / mu); // time for 1st transfer
-                const time2 = Math.PI * Math.sqrt(Math.pow(a_t2, 3) / mu); // time for 2nd transfer
-                return time1 + time2;
-            }
-
-            dom.biEllipticWarning.style.display = 'none';
+            // --- 8. Bi-elliptic Transfer Check ---
             const r_outer_m = Math.max(r_A, r_D);
             const mu = CURRENT_GM_M3_S2;
             const total_dv_Hohmann = best_total_dv;
 
-            // Calculate the DV for a bi-parabolic transfer (rb -> infinity)
+            // Calculate Delta-V for a bi-parabolic (escape/re-capture) transfer, 
+            // which is the limit of the bi-elliptic transfer as the intermediate radius goes to infinity.
             const v_escape_A = getVelocity(r_A, Infinity);
             const v_escape_D = getVelocity(r_D, Infinity);
             const total_dv_BiParabolic = Math.abs(v_escape_A - v_A_initial) + Math.abs(v_escape_D - v_D_final);
 
 
             if (total_dv_BiParabolic < total_dv_Hohmann) {
-                // A bi-elliptic transfer is (at least at infinity) more efficient.
                 
                 if (Math.abs(total_dv_BiParabolic - total_dv_Hohmann) < 0.1) {
-                    // Case 2: Crossover is at/near infinity (within 0.1 m/s)
+                    // Crossover point is near infinity (Bi-parabolic DV is slightly lower)
                     dom.biEllipticWarning.className = 'warning amber';
                     dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> The bi-tangential transfer DV is nearly identical to a bi-parabolic (infinite) transfer. <br> A bi-elliptic transfer is theoretically more efficient, but requires a near-infinite transfer apoapsis and transfer time.`;
                     dom.biEllipticWarning.style.display = 'block';
 
                 } else {
-                    // Check if *any* BE transfer is better (Case 1)
-                    // We check at a radius just slightly larger than the outer radius.
+                    // Check if *any* bi-elliptic transfer is better than the selected Hohmann transfer
                     const dv_at_low_rb = getBiEllipticDV(r_A, v_A_initial, r_D, v_D_final, r_outer_m * 1.01, mu);
 
                     if (dv_at_low_rb < total_dv_Hohmann) {
-                        // Case 1: R >= 15.58 equivalent.
-                        // The DV function is already decreasing. Any BE transfer is better.
+                        // All valid bi-elliptic transfers are more efficient.
                         dom.biEllipticWarning.className = 'warning amber';
                         dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> For this transfer, **any bi-elliptic transfer** (with an apoapsis > ${(r_outer_m/1000).toFixed(0)} km) will be more fuel-efficient than this bi-tangential transfer.`;
                         dom.biEllipticWarning.style.display = 'block';
 
                     } else {
-                        // Case 3: 11.94 < R < 15.58 equivalent.
-                        // Crossover is at a finite, large radius. Find it.
-                        // Find Breakeven Radius using bisection
+                        // The crossover point for efficiency is at a finite, large radius. Find the breakeven point using bisection.
                         const diff_func = (rb) => getBiEllipticDV(r_A, v_A_initial, r_D, v_D_final, rb, mu) - total_dv_Hohmann;
                         
-                        let low = r_outer_m * 1.01; // Start just outside the outer orbit
-                        let high = r_outer_m * 100; // A very large number
+                        let low = r_outer_m * 1.01; 
+                        let high = r_outer_m * 100; 
                         
-                        // We know diff_func(low) is positive (Hohmann is better)
-                        // We know diff_func(inf) is negative (BE is better)
-                        // We need to find a 'high' where diff_func(high) is negative
+                        // Increase search space until the bi-elliptic DV is better than Hohmann DV
                         while (diff_func(high) > 0 && high < 1e15) {
-                            high *= 10; // Keep extending the search space until we find a point where BE is better
+                            high *= 10; 
                         }
 
                         if (diff_func(high) < 0) {
-                            for (let i = 0; i < 50; i++) { // 50 iterations is enough
+                            // Run bisection to converge on the breakeven radius
+                            for (let i = 0; i < 50; i++) { 
                                 let mid = (low + high) / 2;
-                                if (diff_func(mid) < 0) { // BE is better, breakeven is lower
+                                if (diff_func(mid) < 0) { 
                                     high = mid;
-                                } else { // Hohmann is better, breakeven is higher
+                                } else { 
                                     low = mid;
                                 }
                             }
@@ -983,7 +974,7 @@
                             const transfer_time_s = getBiEllipticTime_s(r_A, r_D, breakeven_rb_m, mu);
                             const transfer_time_days = transfer_time_s / 60.0 / 60.0 / 24.0;
 
-                            // Format altitude as requested
+                            // Format the altitude for readability
                             const rounded_breakeven_alt_km = Math.ceil(breakeven_rb_alt_km / 500) * 500;
                             const formatted_alt_km = rounded_breakeven_alt_km.toLocaleString('en-US');
 
@@ -992,7 +983,7 @@
                             dom.biEllipticWarning.style.display = 'block';
 
                         } else {
-                            // Fallback if bisection fails (shouldn't happen)
+                            // Should only happen if the breakeven point is beyond 1e15 meters
                             dom.biEllipticWarning.className = 'warning amber';
                             dom.biEllipticWarning.innerHTML = `BI-ELLIPTIC WARNING: <br> A bi-elliptic transfer *may* be more efficient, but requires an extremely large transfer apoapsis.`;
                             dom.biEllipticWarning.style.display = 'block';
@@ -1003,10 +994,10 @@
 
 
         } catch (err) {
-            // Handle errors
+            // Display calculation errors to the user
             dom.warning.className = 'warning red';
             dom.warning.textContent = `ERROR: ${err.message}`;
-            g_transferData = null; // Ensure nothing is drawn
+            g_transferData = null; 
         }
     }
 
