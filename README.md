@@ -5,7 +5,7 @@ Four SPA are in public release,
   - The [Orbit Visualiser](https://www.appliedspace.tech/nibbles-in-space-orbit-visualiser/),
   - The [Satellite Coverage](https://www.appliedspace.tech/nibbles-in-space-satellite-coverage/),
   - The [Satellite Locator](https://www.appliedspace.tech/nibbles-in-space-satellite-locator/),
-  - The [Orbit Transfer](https://www.appliedspace.tech/nibbles-in-space-orbit-transfer/).
+  - The [Orbit/Hohmann Transfer](https://www.appliedspace.tech/nibbles-in-space-orbit-transfer/).
 
 All can both be viewed at [AppliedSpace.Tech](https://www.appliedspace.tech).
 
