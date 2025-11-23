@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interplanetary Mission Planner</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <style>
+        /* * ==========================================================================
+         * CSS STYLING
+         * ==========================================================================
+         */
+		body { 
+            margin: 0; 
+            /* Monospace font for a technical/sci-fi dashboard feel */
+            font-family: "Roboto Mono", monospace;
+            background-color: #000; 
+            color: #fff; 
+            overflow: hidden; /* Prevent scrollbars on the main window */
+            font-size: 13px;
+        }
+        
+        /* --- Layout System --- */
+        /* Container for the UI overlay on the left side */
+        #panel-container {
+            position: absolute; top: 0px; left: 0; z-index: 10;
+            display: flex; align-items: flex-start;
+        }
+
+        /* The main data/control sidebar */
+        #info {
+            width: 300px;
+            max-height: calc(100vh - 20px);
+            overflow-y: auto; /* Allow scrolling if content is too tall */
+            margin: 10px; padding: 15px;
+            background: rgba(0, 0, 0, 0.9); 
+            border-radius: 8px;
+            backdrop-filter: blur(10px); /* Glassmorphism effect */
+            border: 1px solid rgba(190, 153, 5, 1); /* Gold border */
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* Class to hide the panel off-screen */
+        #info.collapsed { transform: translateX(-120%); }
+
+        /* The arrow button to toggle the panel */
+        #toggle-button {
+            position: absolute; top: 50px; left: 340px; 
+            width: 30px; height: 40px;
+            background: #BE9905; border: none; color: #000;
+            font-weight: bold; cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 11;
+        }
+        
+        /* Move button to the left edge when panel is closed */
+        #info.collapsed + #toggle-button {
+            left: 0; background: #ed1248; color: #fff;
+        }
+
+        /* A small summary panel that appears only when the main panel is closed */
+        #mini-panel {
+            position: absolute; top: 10px; left: 40px;
+            transform: translateY(-150%); z-index: 5;
+            display: flex; flex-direction: column; gap: 5px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 6px; border: 1px solid #444;
+            transition: transform 0.3s ease;
+        }
+        #info.collapsed ~ #mini-panel { transform: translateY(0); }
+        .mini-row { display: flex; align-items: center; gap: 10px; font-size: 0.9em; }
+
+        /* --- UI Elements --- */
+        h1 {
+            margin: 0 0 15px 0; font-size: 1.5em; text-align: center; color: #BE9905; 
+			font-family: "Anta", sans-serif; border-bottom: 1px solid #BE9905; padding-bottom: 8px;
+		}
+        h2 { 
+            font-size: 0.85em; color: #BE9905; text-transform: uppercase; letter-spacing: 1px;
+            margin: 15px 0 8px 0; border-bottom: 1px solid #333; padding-bottom: 2px; 
+            font-family: "Anta", sans-serif;
+		}
+        
+        .control-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.8em; color: #888; }
+        
+        select, input[type="datetime-local"] {
+            width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #444;
+            border-radius: 3px; padding: 6px; font-family: "Roboto Mono", monospace; 
+            box-sizing: border-box; font-size: 0.95em;
+        }
+        select:focus, input:focus { outline: none; border-color: #BE9905; }
+
+        input[type="range"] { width: 100%; accent-color: #BE9905; height: 4px; margin-top: 5px;}
+        .range-val { float: right; font-weight: normal; color: #BE9905; }
+
+        .btn {
+            width: 100%; padding: 10px; background-color: #BE9905; color: #000;
+            border: none; border-radius: 4px; font-family: "Roboto Mono", monospace;
+            font-weight: bold; cursor: pointer; margin-top: 5px; text-transform: uppercase;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: #ffd966; }
+        
+        .btn-group { display: flex; gap: 5px; margin-top: 10px; }
+        .btn-sm { flex: 1; padding: 6px; background: #333; color: #fff; border: 1px solid #555; }
+        .btn-sm.active { background: #BE9905; color: #000; border-color: #BE9905; }
+
+        .data-row { 
+            display: flex; justify-content: space-between; font-size: 0.85em; 
+            padding: 4px 0; border-bottom: 1px solid #222; 
+        }
+        .data-label { color: #888; }
+        .data-val { font-weight: bold; color: #eee; }
+        .highlight { color: #BE9905; }
+        
+        /* Status box for errors or optimization messages */
+        .status-box {
+            margin-top: 15px; padding: 10px; border-radius: 4px; display: none;
+            font-size: 0.85em;
+        }
+        .status-success { background: rgba(0, 255, 128, 0.08); border: 1px solid #00ff80; }
+        .status-error { background: rgba(255, 68, 68, 0.1); border: 1px solid #ff4444; }
+        .status-title { font-weight: bold; text-transform: uppercase; margin-bottom: 5px; display: block;}
+        .status-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+
+        .time-display {
+            font-size: 1.0em; color: #BE9905; background: #111; padding: 8px;
+            border-radius: 3px; text-align: center; border: 1px solid #333;
+        }
+
+        /* --- Visualization Layer (SVG) --- */
+        #map-container {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%);
+        }
+        
+        /* SVG Elements styling */
+        .orbit { fill: none; stroke: #4a7a25; stroke-width: 1px; opacity: 0.4; vector-effect: non-scaling-stroke; }
+        .transfer { fill: none; stroke: #ed1248; stroke-width: 1.5px; stroke-dasharray: 4, 4; opacity: 0.8; vector-effect: non-scaling-stroke; }
+        .body-marker { stroke: #000; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+        .sat-marker { fill: #fff; stroke: #ed1248; stroke-width: 2px; vector-effect: non-scaling-stroke; }
+        .sun { fill: #BE9905; filter: drop-shadow(0 0 20px #BE9905); }
+        .label { fill: #888; pointer-events: none; text-shadow: 0 0 2px #000; font-family: "Roboto Mono"; }
+        
+        #loading { display: none; text-align: center; color: #BE9905; margin-top: 5px; font-size: 0.8em; }
+
+    </style>
+</head>
+<body>
+
+<div id="panel-container">
+    <div id="info">
+        <h1>Lambert's problem</h1>
+        
+        <h2>Mission Config</h2>
+        <div class="control-group">
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1">
+                    <label>Origin</label>
+                    <select id="origin-select">
+                        <option value="mercury">Mercury</option>
+                        <option value="venus">Venus</option>
+                        <option value="earth" selected>Earth</option>
+                        <option value="mars">Mars</option>
+                    </select>
+                </div>
+                <div style="flex:1">
+                    <label>Target</label>
+                    <select id="target-select">
+                        <option value="mercury">Mercury</option>
+                        <option value="venus">Venus</option>
+                        <option value="earth">Earth</option>
+                        <option value="mars" selected>Mars</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>Departure Window (UTC)</label>
+            <input type="datetime-local" id="epoch">
+        </div>
+
+        <button id="calc-btn" class="btn">Calculate Solution</button>
+        <div id="loading">Optimizing trajectory...</div>
+
+        <h2>Simulation</h2>
+        <div class="control-group">
+            <div id="time-display-main" class="time-display"></div>
+        </div>
+        <div class="control-group">
+            <label>Speed <span class="range-val" id="speed-val-main">x100k</span></label>
+            <input type="range" id="speed-slider-main" min="1" max="1000000" step="1000" value="100000">
+        </div>
+        <div class="btn-group">
+            <button id="btn-reset" class="btn btn-sm">Reset</button>
+            <button id="btn-play" class="btn btn-sm">Play</button>
+        </div>
+
+        <h2>Mission Manifest</h2>
+        <div id="results-panel">
+            <div class="data-row"><span class="data-label">Departure Date</span><span class="data-val" id="res-dep">--</span></div>
+            <div class="data-row"><span class="data-label">Arrival Date</span><span class="data-val" id="res-arr">--</span></div>
+            <div class="data-row"><span class="data-label">Flight Time</span><span class="data-val" id="res-tof">--</span></div>
+            
+            <div style="margin-top:10px; margin-bottom: 5px; font-size:0.8em; color:#BE9905; text-transform:uppercase; font-weight:bold;">Departure Parameters</div>
+            <div class="data-row"><span class="data-label">Characteristic Energy (C<sub>3</sub>)</span><span class="data-val" id="res-c3">--</span></div>
+            <div class="data-row"><span class="data-label">Excess Velocity (V<sub>∞</sub>)</span><span class="data-val" id="res-vinf-dep">--</span></div>
+            <div class="data-row"><span class="data-label">Declination</span><span class="data-val" id="res-decl-dep">--</span></div>
+            <div class="data-row"><span class="data-label">Right Ascension</span><span class="data-val" id="res-ra-dep">--</span></div>
+
+            <div style="margin-top:10px; margin-bottom: 5px; font-size:0.8em; color:#BE9905; text-transform:uppercase; font-weight:bold;">Arrival Parameters</div>
+            <div class="data-row"><span class="data-label">Excess Velocity (V<sub>∞</sub>)</span><span class="data-val" id="res-vinf-arr">--</span></div>
+            <div class="data-row"><span class="data-label">Declination</span><span class="data-val" id="res-decl-arr">--</span></div>
+            <div class="data-row"><span class="data-label">Right Ascension</span><span class="data-val" id="res-ra-arr">--</span></div>
+            
+            <div class="data-row" style="border-top: 1px solid #444; margin-top:10px; padding-top:5px;">
+                <span class="data-label highlight">Total Delta-V</span>
+                <span class="data-val highlight" id="res-dv-total">--</span>
+            </div>
+        </div>
+
+        <div id="opt-box" class="status-box">
+            <span id="opt-title" class="status-title"></span>
+            <div id="opt-content"></div>
+        </div>
+
+        <div style="margin-top:15px; border-top:1px solid #333; padding-top:5px; font-size:0.8em; color:#666; text-align:center;">
+            Scale: <span id="scale-val">--</span>
+        </div>
+    </div>
+    
+    <button id="toggle-button" title="Toggle Panel">◀</button>
+
+    <div id="mini-panel">
+        <div class="mini-row">
+            <span style="color:#BE9905; font-weight:bold;">UTC</span>
+            <div id="time-display-mini" style="font-family:'Roboto Mono'; min-width:180px;"></div>
+        </div>
+        <div class="mini-row">
+            <span style="color:#BE9905; font-weight:bold;">Speed</span>
+            <input type="range" id="speed-slider-mini" min="1" max="1000000" step="1000" value="100000" style="width:100px;">
+            <span id="speed-val-mini" style="min-width:50px; text-align:right;"></span>
+        </div>
+    </div>
+</div>
+
+<div id="map-container">
+    <svg id="map-svg"></svg>
+</div>
+
+<script>
+    'use strict';
+
+    /* * =======================================================================
+     * 1. CONSTANTS & ORBITAL DATA
+     * =======================================================================
+     */
+    
+    // Physical constants required for Astrodynamics calculations
+    const CONSTANTS = {
+        AU: 149597870.7,          // Astronomical Unit in Kilometers (distance Earth to Sun)
+        MU: 1.32712440018e11,     // Standard Gravitational Parameter for the Sun (km^3/s^2)
+        DEG2RAD: Math.PI / 180,   // Multiplier to convert degrees to radians
+        RAD2DEG: 180 / Math.PI,   // Multiplier to convert radians to degrees
+        // The reference epoch (J2000) from which orbital elements are calculated
+        J2000: new Date(Date.UTC(2000, 0, 1, 12, 0, 0))
+    };
+
+    // Keplerian Orbital Elements for planets.
+    // These define the shape and orientation of planetary orbits.
+    // Based on J2000 rates.
+    // a: Semi-major axis (AU) - size of the orbit
+    // e: Eccentricity (0-1) - shape of the orbit (0=circle, 1=parabola)
+    // i: Inclination (deg) - tilt relative to the ecliptic plane
+    // L: Mean Longitude (deg) - position along the orbit
+    // w: Longitude of Perihelion (deg) - orientation of the closest approach
+    // n: Longitude of Ascending Node (deg) - where the orbit crosses the ecliptic up
+    // rates: The change in these values per Julian century (planetary precession)
+    const BODIES = {
+        mercury: { name: "Mercury", color: "#aaa", r: 2.4, els: { a: 0.387098, e: 0.205630, i: 7.005, L: 252.250, w: 77.456, n: 48.331 }, rates: { a: 0, e: 0.000025, i: -0.005, L: 149472.674, w: 0.160, n: -0.125 } },
+        venus:   { name: "Venus",   color: "#d4a017", r: 4.0, els: { a: 0.723332, e: 0.006773, i: 3.394, L: 181.979, w: 131.532, n: 76.680 }, rates: { a: 0, e: -0.000049, i: -0.000, L: 58517.815, w: 0.007, n: -0.277 } },
+        earth:   { name: "Earth",   color: "#00d2ff", r: 4.0, els: { a: 1.000000, e: 0.016708, i: 0.000, L: 100.464, w: 102.947, n: 0.0 },    rates: { a: 0, e: -0.000042, i: 0.013, L: 35999.372, w: 0.323, n: 0.0 } },
+        mars:    { name: "Mars",    color: "#ff4d4d", r: 3.5, els: { a: 1.523679, e: 0.093405, i: 1.850, L: 355.453, w: 336.040, n: 49.578 }, rates: { a: 0, e: 0.000092, i: -0.007, L: 19140.299, w: 0.444, n: -0.292 } }
+    };
+
+    /* * =======================================================================
+     * 2. STATE & UI MANAGEMENT
+     * =======================================================================
+     */
+    
+    // The Global State object tracks the simulation variables
+    const State = {
+        simTime: new Date(), // Current Time in the animation
+        lastTick: 0,         // For calculating DeltaTime (dt) in the animation loop
+        speed: 100000,       // Simulation speed multiplier (1 sec real = X sec sim)
+        playing: false,      // Is the animation running?
+        mission: null,       // Holds the calculated transfer data (Lambert solution)
+        svg: { w: 0, h: 0, scale: 150 }, // SVG dimension tracking
+    };
+
+    // Cache DOM elements for performance
+    const UI = {
+        origin: document.getElementById('origin-select'),
+        target: document.getElementById('target-select'),
+        epoch: document.getElementById('epoch'),
+        sliders: [document.getElementById('speed-slider-main'), document.getElementById('speed-slider-mini')],
+        speedLabels: [document.getElementById('speed-val-main'), document.getElementById('speed-val-mini')],
+        timeMain: document.getElementById('time-display-main'),
+        timeMini: document.getElementById('time-display-mini'),
+        scale: document.getElementById('scale-val'),
+        loading: document.getElementById('loading'),
+        // Result fields
+        res: {
+            dep: document.getElementById('res-dep'), arr: document.getElementById('res-arr'), tof: document.getElementById('res-tof'),
+            c3: document.getElementById('res-c3'), vInfDep: document.getElementById('res-vinf-dep'), declDep: document.getElementById('res-decl-dep'), raDep: document.getElementById('res-ra-dep'),
+            vInfArr: document.getElementById('res-vinf-arr'), declArr: document.getElementById('res-decl-arr'), raArr: document.getElementById('res-ra-arr'),
+            totalDv: document.getElementById('res-dv-total')
+        },
+        optBox: document.getElementById('opt-box'),
+        optTitle: document.getElementById('opt-title'),
+        optContent: document.getElementById('opt-content'),
+        info: document.getElementById('info'),
+        toggle: document.getElementById('toggle-button'),
+        map: document.getElementById('map-container')
+    };
+
+    // Helper: Format Date as dd/mm/yyyy for UI display
+    const fmtDate = (d) => {
+        return `${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`;
+    };
+
+    /* * =======================================================================
+     * 3. PHYSICS ENGINE (The Math)
+     * =======================================================================
+     */
+    
+    // Simple 3D Vector Mathematics Helper
+    const Vec3 = {
+        mag: (v) => Math.sqrt(v[0]**2 + v[1]**2 + v[2]**2), // Magnitude (Length)
+        dot: (u, v) => u[0]*v[0] + u[1]*v[1] + u[2]*v[2],   // Dot Product
+        sub: (u, v) => [u[0]-v[0], u[1]-v[1], u[2]-v[2]]    // Subtraction
+    };
+
+    /**
+     * Calculates the State Vector (Position r, Velocity v) of a planet 
+     * at a specific date using Keplerian Orbital Elements.
+     * @param {string} bodyKey - 'earth', 'mars', etc.
+     * @param {Date} date - The specific time to calculate.
+     * @returns {Object} { r: [x,y,z], v: [vx,vy,vz] } in km and km/s
+     */
+    function getBodyState(bodyKey, date) {
+        const b = BODIES[bodyKey];
+        
+        // 1. Calculate number of Julian centuries since J2000 Epoch
+        const T = (date - CONSTANTS.J2000) / (86400000 * 36525); 
+
+        // 2. Update orbital elements based on precession rates
+        const a = b.els.a + b.rates.a * T;
+        const e = b.els.e + b.rates.e * T;
+        const i = (b.els.i + b.rates.i * T) * CONSTANTS.DEG2RAD;
+        const L = (b.els.L + b.rates.L * T) * CONSTANTS.DEG2RAD;
+        const w = (b.els.w + b.rates.w * T) * CONSTANTS.DEG2RAD;
+        const n = (b.els.n + b.rates.n * T) * CONSTANTS.DEG2RAD;
+        
+        // 3. Derive Argument of Periapsis (omega) and Mean Anomaly (M)
+        const omega = w - n;
+        let M = (L - w) % (2 * Math.PI); 
+        if (M < 0) M += 2 * Math.PI;
+
+        // 4. Solve Kepler's Equation (M = E - e*sin(E)) for Eccentric Anomaly (E)
+        // Using Newton-Raphson iteration for numerical stability
+        let E = M;
+        for(let k=0; k<10; k++) E = E - (E - e*Math.sin(E) - M) / (1 - e*Math.cos(E));
+
+        // 5. Calculate True Anomaly (nu) and Radius (r_dist)
+        const nu = 2 * Math.atan(Math.sqrt((1+e)/(1-e)) * Math.tan(E/2));
+        const r_dist = a * (1 - e*Math.cos(E)) * CONSTANTS.AU;
+        
+        // 6. Calculate position/velocity in the Perifocal Frame (Orbital Plane)
+        const mu = CONSTANTS.MU;
+        const h_mag = Math.sqrt(mu * a * (1 - e*e) * CONSTANTS.AU); // Angular momentum magnitude
+
+        const px = r_dist * Math.cos(nu), py = r_dist * Math.sin(nu);
+        const vx = -(mu/h_mag) * Math.sin(nu), vy = (mu/h_mag) * (e + Math.cos(nu));
+
+        // 7. Rotate from Perifocal Frame to Heliocentric Ecliptic Frame (3D Rotation)
+        const cN = Math.cos(n), sN = Math.sin(n);
+        const cO = Math.cos(omega), sO = Math.sin(omega);
+        const cI = Math.cos(i), sI = Math.sin(i);
+
+        // Rotation Matrix elements
+        const xx = cN*cO - sN*sO*cI, xy = -cN*sO - sN*cO*cI;
+        const yx = sN*cO + cN*sO*cI, yy = -sN*sO + cN*cO*cI;
+        const zx = sO*sI, zy = cO*sI;
+
+        return {
+            r: [px*xx + py*xy, px*yx + py*yy, px*zx + py*zy],
+            v: [vx*xx + vy*xy, vx*yx + vy*yy, vx*zx + vy*zy]
+        };
+    }
+
+    /**
+     * LAMBERT SOLVER
+     * Solves the boundary value problem: given two position vectors (r1, r2)
+     * and a time of flight (dt), find the required velocity vectors.
+     * Uses the Universal Variable Formulation (Bate, Mueller, White).
+     * * @param {Array} r1 - Position vector at departure [x,y,z]
+     * @param {Array} r2 - Position vector at arrival [x,y,z]
+     * @param {number} dt - Time of flight in seconds
+     * @returns {Object|null} - {v1, v2} velocities or null if failed
+     */
+    function solveLambert(r1, r2, dt) {
+        const r1m = Vec3.mag(r1), r2m = Vec3.mag(r2);
+        
+        // Determine geometry and transfer angle (dnu)
+        const cos_dnu = Vec3.dot(r1, r2) / (r1m * r2m);
+        const crossZ = r1[0]*r2[1] - r1[1]*r2[0]; // Z-component of cross product to check direction
+        
+        let dnu = Math.acos(Math.max(-1, Math.min(1, cos_dnu)));
+        // If the transfer is "the long way around" (retrograde or >180), adjust angle
+        if (crossZ < 0) dnu = 2 * Math.PI - dnu; 
+
+        // 'A' is a geometric constant in the Universal Variable formulation
+        const A = Math.sin(dnu) * Math.sqrt(r1m * r2m / (1 - Math.cos(dnu)));
+
+        // Stumpff Functions C(z) and S(z) - series approximations for universal variables
+        // These handle elliptical (z>0), parabolic (z=0), and hyperbolic (z<0) orbits uniformly.
+        const C = z => z > 1e-6 ? (1 - Math.cos(Math.sqrt(z)))/z : (z < -1e-6 ? (Math.cosh(Math.sqrt(-z))-1)/(-z) : 0.5);
+        const S = z => z > 1e-6 ? (Math.sqrt(z) - Math.sin(Math.sqrt(z)))/Math.sqrt(z**3) : (z < -1e-6 ? (Math.sinh(Math.sqrt(-z)) - Math.sqrt(-z))/Math.sqrt((-z)**3) : 1/6);
+
+        // Function to calculate time-of-flight given a guess 'z'
+        function getT(z) {
+            const Cz = C(z), Sz = S(z);
+            const y = r1m + r2m + A * (z * Sz - 1) / Math.sqrt(Cz);
+            if (y < 0 || isNaN(y)) return NaN; // Physically impossible geometry
+            const x = Math.sqrt(y / Cz);
+            return (x**3 * Sz + A * Math.sqrt(y)) / Math.sqrt(CONSTANTS.MU);
+        }
+
+        // *** NEWTON-RAPHSON SOLVER ***
+        // Iterate to find 'z' such that getT(z) matches target 'dt'
+        let z = 0, iter = 0;
+        
+        while(iter < 1000) {
+            const t = getT(z);
+            
+            if (isNaN(t)) {
+                // If we strayed into an invalid region (y < 0), reset to a safe guess
+                z = 0.1; iter++; continue; 
+            }
+
+            // Convergence Check
+            if (Math.abs(t - dt) < 1e-4) break; 
+
+            // Numerical Differentiation (Finite Difference) to find slope
+            const step = 1e-5;
+            let t_plus = getT(z + step);
+            
+            if (isNaN(t_plus)) {
+                z -= 0.1; iter++; continue;
+            }
+
+            const dtdz = (t_plus - t) / step;
+            
+            if (dtdz === 0) break; // Prevent division by zero
+
+            // Standard Newton-Raphson step: z_new = z_old - f(z)/f'(z)
+            let next_z = z - (t - dt) / dtdz;
+            
+            // Clamp the step size to prevent wild divergence in highly hyperbolic cases
+            if (Math.abs(next_z - z) > 2.0) next_z = z + 2.0 * Math.sign(next_z - z);
+            
+            z = next_z;
+            iter++;
+        }
+
+        // Final verification: Did we actually converge?
+        if(isNaN(z) || Math.abs(getT(z) - dt) > 1e-3) return null; 
+
+        // Reconstruct velocity vectors using Lagrange coefficients (f, g, g_dot)
+        const z_final = z;
+        const y = r1m + r2m + A * (z_final * S(z_final) - 1) / Math.sqrt(C(z_final));
+        const f = 1 - y / r1m;
+        const g = A * Math.sqrt(y / CONSTANTS.MU);
+        const g_dot = 1 - y / r2m;
+
+        const v1 = [(r2[0] - f*r1[0])/g, (r2[1] - f*r1[1])/g, (r2[2] - f*r1[2])/g];
+        const v2 = [(g_dot*r2[0] - r1[0])/g, (g_dot*r2[1] - r1[1])/g, (g_dot*r2[2] - r1[2])/g];
+
+        // Sanity check
+        if(!isFinite(v1[0])) return null;
+        return { v1, v2 };
+    }
+
+    /**
+     * Calculates the position of the Satellite at a specific time 'dt'
+     * after departure. This allows us to draw the transfer path.
+     * Converts state vectors to orbital elements, propagates Mean Anomaly,
+     * and converts back to Cartesian coordinates.
+     */
+    function getSatState(r0, v0, dt) {
+        const r_mag = Vec3.mag(r0), v_mag = Vec3.mag(v0), mu = CONSTANTS.MU;
+        
+        // 1. Calculate Angular Momentum (h) and Energy to find Semi-major Axis (a)
+        const h = [ r0[1]*v0[2]-r0[2]*v0[1], r0[2]*v0[0]-r0[0]*v0[2], r0[0]*v0[1]-r0[1]*v0[0] ];
+        const h_mag = Vec3.mag(h);
+        const energy = v_mag**2/2 - mu/r_mag;
+        const a = -mu / (2*energy);
+        
+        // 2. Calculate Eccentricity Vector (e_vec)
+        const e_vec = [
+            ((v_mag**2 - mu/r_mag)*r0[0] - Vec3.dot(r0,v0)*v0[0])/mu,
+            ((v_mag**2 - mu/r_mag)*r0[1] - Vec3.dot(r0,v0)*v0[1])/mu,
+            ((v_mag**2 - mu/r_mag)*r0[2] - Vec3.dot(r0,v0)*v0[2])/mu
+        ];
+        const e = Vec3.mag(e_vec);
+
+        // 3. Calculate Inclination (i), Ascending Node (Omega), Argument of Periapsis (w)
+        const i = Math.acos(h[2]/h_mag);
+        const N = [-h[1], h[0], 0]; // Node line vector
+        const N_mag = Vec3.mag(N);
+        const Omega = (N_mag>1e-9) ? (N[1]>=0 ? Math.acos(N[0]/N_mag) : 2*Math.PI-Math.acos(N[0]/N_mag)) : 0;
+        
+        let w = 0;
+        if(e > 1e-9 && N_mag > 1e-9) {
+            const dot = Vec3.dot(N, e_vec)/(N_mag*e);
+            w = (e_vec[2]>=0) ? Math.acos(dot) : 2*Math.PI-Math.acos(dot);
+        }
+
+        // 4. Calculate Initial True Anomaly (nu) and Initial Mean Anomaly (M0)
+        let nu = 0;
+        if(e > 1e-9) {
+            const dot = Vec3.dot(e_vec, r0)/(e*r_mag);
+            nu = (Vec3.dot(r0,v0)>=0) ? Math.acos(Math.min(1,Math.max(-1,dot))) : 2*Math.PI-Math.acos(Math.min(1,Math.max(-1,dot)));
+        }
+        
+        const E0 = 2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(nu/2));
+        const M0 = E0 - e*Math.sin(E0);
+        
+        // 5. Propagate Mean Anomaly forward by time dt
+        const n = Math.sqrt(mu/Math.abs(a**3)); // Mean Motion
+        const M = M0 + n*dt;
+
+        // 6. Solve Kepler Equation for new E
+        let E = M;
+        for(let k=0;k<10;k++) E = E - (E - e*Math.sin(E) - M)/(1 - e*Math.cos(E));
+
+        // 7. Convert back to Position Vector (PQW -> ECI rotation)
+        const r_new = a*(1-e*Math.cos(E));
+        const nu_new = 2*Math.atan(Math.sqrt((1+e)/(1-e))*Math.tan(E/2));
+        const pq_x = r_new * Math.cos(nu_new), pq_y = r_new * Math.sin(nu_new);
+        
+        const cO=Math.cos(Omega), sO=Math.sin(Omega), cw=Math.cos(w), sw=Math.sin(w), ci=Math.cos(i), si=Math.sin(i);
+        
+        return [
+            pq_x*(cO*cw - sO*sw*ci) - pq_y*(cO*sw + sO*cw*ci),
+            pq_x*(sO*cw + cO*sw*ci) - pq_y*(sO*sw - cO*cw*ci),
+            pq_x*(sw*si) + pq_y*(cw*si)
+        ];
+    }
+
+    /* * =======================================================================
+     * 4. MISSION LOGIC
+     * =======================================================================
+     */
+    
+    /**
+     * Finds the lowest Delta-V transfer for a specific departure date.
+     * Loops through various Time of Flights (30 to 500 days) to find the sweet spot.
+     */
+    function findOptimalTransfer(origin, target, date) {
+        let best = { dv: Infinity };
+        const s1 = getBodyState(origin, date);
+
+        // Loop through potential flight durations (30 days to 500 days)
+        for(let days=30; days<=500; days+=10) {
+            const tof = days * 86400; // Seconds
+            const arrDate = new Date(date.getTime() + tof*1000);
+            const s2 = getBodyState(target, arrDate);
+            
+            // Solve Lambert for this duration
+            const sol = solveLambert(s1.r, s2.r, tof);
+            if(!sol) continue;
+
+            // Calculate Delta-V (Change in Velocity required)
+            // Delta-V Departure = |Transfer Start Vel - Planet Vel|
+            // Delta-V Arrival = |Transfer End Vel - Planet Vel|
+            const vInfDepVec = Vec3.sub(sol.v1, s1.v);
+            const vInfArrVec = Vec3.sub(sol.v2, s2.v);
+            
+            const dv1 = Vec3.mag(vInfDepVec);
+            const dv2 = Vec3.mag(vInfArrVec);
+            const total = dv1 + dv2;
+
+            // Keep the best result (lowest total Delta-V)
+            if(total < best.dv) {
+                best = {
+                    dv: total, dv1, dv2, vInfDepVec, vInfArrVec,
+                    tof, depDate: date, arrDate: arrDate, r1: s1.r, v1: sol.v1
+                };
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Main orchestration function triggered by "Calculate Solution" button.
+     * 1. Finds optimal transfer for the User Selected date.
+     * 2. Checks adjacent dates to see if a better window exists.
+     * 3. Updates UI.
+     */
+    function runCalculation() {
+        UI.loading.style.display = "block";
+        UI.optBox.style.display = "none";
+        const origin = UI.origin.value, target = UI.target.value, date = new Date(UI.epoch.value);
+
+        if(origin === target) { alert("Select different bodies."); UI.loading.style.display="none"; return; }
+
+        // Use setTimeout to allow the UI to render the "Loading" text before the heavy math freezes the thread
+        setTimeout(() => {
+            const localBest = findOptimalTransfer(origin, target, date);
+
+            if(localBest.dv < Infinity) {
+                loadMission(localBest);
+                
+                // Secondary optimization pass: Look 2 years ahead to see if user picked a bad date
+                setTimeout(() => {
+                    let globalBest = { dv: Infinity };
+                    for(let i=0; i<750; i+=30) {
+                        const d = new Date(date.getTime() + i*86400000);
+                        const res = findOptimalTransfer(origin, target, d);
+                        if(res.dv < globalBest.dv) globalBest = res;
+                    }
+                    
+                    UI.optBox.style.display = "block";
+                    
+                    // If a much better solution exists (10% better), tell the user
+                    if(globalBest.dv < localBest.dv * 0.9) {
+                        UI.optBox.className = "status-box status-success";
+                        UI.optTitle.textContent = "Better Window Available";
+                        UI.optContent.innerHTML = `
+                            <div class="status-row"><span>Date:</span> <span style="color:#fff">${fmtDate(globalBest.depDate)}</span></div>
+                            <div class="status-row"><span>Total ΔV:</span> <span style="color:#fff">${globalBest.dv.toFixed(2)} km/s</span></div>
+                            <div style="text-align:right; font-size:0.8em; color:#aaa; margin-top:2px;">(Current: ${localBest.dv.toFixed(2)} km/s)</div>
+                        `;
+                    } else {
+                        UI.optBox.className = "status-box status-success";
+                        UI.optTitle.textContent = "Window Optimization";
+                        UI.optContent.innerHTML = `<div style="color:#ccc">Current date is near optimal.</div>`;
+                    }
+                    UI.loading.style.display = "none";
+                }, 50);
+
+            } else {
+                // Failure state (usually impossible geometry)
+                UI.loading.style.display = "none";
+                UI.optBox.style.display = "block";
+                UI.optBox.className = "status-box status-error";
+                UI.optTitle.textContent = "No Solution Found";
+                UI.optContent.textContent = "Geometry invalid for transfer.";
+                State.mission = null;
+                renderFrame();
+            }
+        }, 50);
+    }
+
+    /**
+     * Populates the Mission Manifest UI with calculated data.
+     * Pre-calculates the path for visualization.
+     */
+    function loadMission(m) {
+        const getAngles = (vec) => {
+            const mag = Vec3.mag(vec);
+            // Declination: Angle up/down from the equator
+            const decl = Math.asin(vec[2]/mag) * CONSTANTS.RAD2DEG;
+            // Right Ascension: Angle along the equator
+            let ra = Math.atan2(vec[1], vec[0]) * CONSTANTS.RAD2DEG;
+            if(ra < 0) ra += 360;
+            return { decl, ra };
+        }
+
+        const depAng = getAngles(m.vInfDepVec);
+        const arrAng = getAngles(m.vInfArrVec);
+        const c3 = m.dv1**2; // Characteristic Energy
+
+        // Update Text UI
+        UI.res.dep.textContent = fmtDate(m.depDate);
+        UI.res.arr.textContent = fmtDate(m.arrDate);
+        UI.res.tof.textContent = (m.tof/86400).toFixed(1) + " days";
+        
+        UI.res.c3.textContent = c3.toFixed(2) + " km²/s²";
+        UI.res.vInfDep.textContent = m.dv1.toFixed(2) + " km/s";
+        UI.res.declDep.textContent = depAng.decl.toFixed(2) + "°";
+        UI.res.raDep.textContent = depAng.ra.toFixed(2) + "°";
+
+        UI.res.vInfArr.textContent = m.dv2.toFixed(2) + " km/s";
+        UI.res.declArr.textContent = arrAng.decl.toFixed(2) + "°";
+        UI.res.raArr.textContent = arrAng.ra.toFixed(2) + "°";
+
+        UI.res.totalDv.textContent = m.dv.toFixed(2) + " km/s";
+
+        // Generate path points for the SVG line
+        m.path = [];
+        for(let i=0; i<=100; i++) {
+            const pos = getSatState(m.r1, m.v1, m.tof * (i/100));
+            // Convert from KM to AU for visualization
+            if(pos) m.path.push([pos[0]/CONSTANTS.AU, -pos[1]/CONSTANTS.AU]);
+        }
+
+        State.mission = m;
+        State.simTime = new Date(m.depDate); // Jump simulation to departure
+        renderFrame();
+    }
+
+    /* * =======================================================================
+     * 5. VISUALIZATION SYSTEM (D3.js)
+     * =======================================================================
+     */
+    
+    // Initialize listeners and default state
+    function init() {
+        // Set default date to today
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        UI.epoch.value = now.toISOString().slice(0,16);
+        
+        // Panel toggle logic
+        UI.toggle.onclick = () => {
+            UI.info.classList.toggle('collapsed');
+            UI.toggle.textContent = UI.info.classList.contains('collapsed') ? "▶" : "◀";
+        };
+        
+        // Sync main and mini speed sliders
+        const syncSpeed = (v) => {
+            State.speed = parseFloat(v);
+            UI.sliders.forEach(s => s.value = v);
+            UI.speedLabels.forEach(l => l.textContent = `x${(State.speed/1000).toFixed(0)}k`);
+        };
+        UI.sliders.forEach(s => s.oninput = (e) => syncSpeed(e.target.value));
+        syncSpeed(100000); // Default speed
+
+        // Button listeners
+        document.getElementById('calc-btn').onclick = runCalculation;
+        document.getElementById('btn-reset').onclick = () => {
+            if(State.mission) {
+                State.simTime = new Date(State.mission.depDate);
+                State.playing = false;
+                renderFrame();
+            }
+        };
+        document.getElementById('btn-play').onclick = () => {
+            State.playing = !State.playing;
+            State.lastTick = performance.now();
+        };
+
+        // Handle window resizing
+        window.onresize = () => {
+            State.svg.w = UI.map.clientWidth;
+            State.svg.h = UI.map.clientHeight;
+            d3.select("#map-svg").attr("width", State.svg.w).attr("height", State.svg.h);
+            renderFrame();
+        };
+        window.onresize();
+
+        requestAnimationFrame(loop);
+    }
+
+    // Animation Loop
+    function loop(now) {
+        const dt = (now - State.lastTick)/1000; // Delta time in seconds
+        State.lastTick = now;
+
+        if(State.playing) {
+            const step = dt * State.speed; // Real time * multiplier
+            const nextT = State.simTime.getTime() + step*1000;
+            
+            // Stop at arrival time if mission is loaded
+            if(State.mission) {
+                const tArr = State.mission.arrDate.getTime();
+                if(State.simTime.getTime() < tArr && nextT >= tArr) {
+                    State.simTime = new Date(tArr);
+                    State.playing = false;
+                } else {
+                    State.simTime = new Date(nextT);
+                }
+            } else {
+                State.simTime = new Date(nextT);
+            }
+            renderFrame();
+        }
+        requestAnimationFrame(loop);
+    }
+
+    // Main Rendering Function
+    function renderFrame() {
+        const svg = d3.select("#map-svg");
+        svg.selectAll("*").remove(); // clear canvas
+        
+        // Update Time Displays
+        const tStr = State.simTime.toUTCString().replace("GMT","UTC");
+        UI.timeMain.textContent = tStr;
+        UI.timeMini.textContent = tStr;
+
+        const cx = State.svg.w/2, cy = State.svg.h/2;
+        
+        // --- DYNAMIC SCALING LOGIC ---
+        // Determine how zoomed out we need to be.
+        // Default: Fit Mars' orbit (approx 1.7 au radius)
+        let maxAU = 1.7; 
+
+        if (State.mission && State.mission.path) {
+            // If mission active, expand view to fit the whole transfer
+            let maxPath = 0;
+            State.mission.path.forEach(p => {
+                const d = Math.sqrt(p[0]**2 + p[1]**2);
+                if(d > maxPath) maxPath = d;
+            });
+            maxAU = Math.max(maxAU, maxPath);
+        }
+        
+        // Calculate pixels per AU based on smallest screen dimension
+        const minDim = Math.min(State.svg.w, State.svg.h);
+        let scale = (minDim / 2) / (maxAU * 1.1); // 10% padding
+        
+        State.svg.scale = scale;
+        UI.scale.textContent = `1 au = ${scale.toFixed(0)} px`;
+        
+        // Create a group for all orbital elements, centered on screen
+        const g = svg.append("g").attr("transform", `translate(${cx},${cy}) scale(${scale})`);
+        
+        // Draw Sun
+        g.append("circle").attr("r", 10/scale).attr("class", "sun");
+
+        // Draw Planets and their Orbits
+        ['mercury','venus','earth','mars'].forEach(k => {
+            const b = BODIES[k];
+            // Approximate orbital period to draw a full circle
+            const P = 2*Math.PI * Math.sqrt((b.els.a*CONSTANTS.AU)**3/CONSTANTS.MU);
+            const pts = [];
+            
+            // Generate 100 points representing the orbit path
+            for(let i=0; i<=100; i++) {
+                const pos = getBodyState(k, new Date(CONSTANTS.J2000.getTime() + (i/100)*P*1000));
+                // Note: SVG Y is down, Space Y is up, so we invert Y (-pos.r[1])
+                pts.push([pos.r[0]/CONSTANTS.AU, -pos.r[1]/CONSTANTS.AU]);
+            }
+            g.append("path").attr("d", d3.line()(pts)).attr("class", "orbit").style("stroke", b.color);
+
+            // Draw Planet Marker at current simulation time
+            const cur = getBodyState(k, State.simTime);
+            const px = cur.r[0]/CONSTANTS.AU, py = -cur.r[1]/CONSTANTS.AU;
+            g.append("circle").attr("cx", px).attr("cy", py).attr("r", 5/scale).attr("class", "body-marker").style("fill", b.color);
+            
+            // Planet Label
+            g.append("text")
+             .attr("x", px + 15/scale)
+             .attr("y", py + 5/scale)
+             .text(b.name)
+             .style("font-size", (12/scale) + "px") // Keep font size consistent regardless of zoom
+             .attr("class", "label");
+        });
+
+        // Draw Mission Specifics (Satellite & Trajectory)
+        if(State.mission) {
+            const m = State.mission;
+            // Draw the transfer orbit path
+            g.append("path").attr("d", d3.line()(m.path)).attr("class", "transfer");
+            
+            const tSim = State.simTime.getTime();
+            const tDep = m.depDate.getTime();
+            const tArr = m.arrDate.getTime();
+
+            let sx, sy;
+            // Logic to snap satellite to target after arrival, or track trajectory during flight
+            if(tSim >= tArr) {
+                const cur = getBodyState(UI.target.value, State.simTime);
+                sx = cur.r[0]/CONSTANTS.AU; sy = -cur.r[1]/CONSTANTS.AU;
+            } else if(tSim >= tDep) {
+                const pos = getSatState(m.r1, m.v1, (tSim - tDep)/1000);
+                if(pos) { sx = pos[0]/CONSTANTS.AU; sy = -pos[1]/CONSTANTS.AU; }
+            }
+
+            // Draw Satellite Marker
+            if(sx !== undefined) {
+                g.append("circle").attr("cx", sx).attr("cy", sy).attr("r", 4/scale).attr("class", "sat-marker");
+            }
+            
+            // Draw "Ghost" target marker (where the planet will be at arrival)
+            if(tSim < tArr) {
+                const arrPos = getBodyState(UI.target.value, m.arrDate);
+                g.append("circle").attr("cx", arrPos.r[0]/CONSTANTS.AU).attr("cy", -arrPos.r[1]/CONSTANTS.AU)
+                 .attr("r", 4/scale).style("fill","none").style("stroke","#ed1248").style("stroke-dasharray","2,2").style("vector-effect","non-scaling-stroke");
+            }
+        }
+    }
+
+    // Start the application
+    init();
+
+</script>
+</body>
+</html>
