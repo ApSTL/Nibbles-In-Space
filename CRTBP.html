@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jacobi Contour Visualiser</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Anta&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <style>
+        /* * ==========================================================================
+         * CSS STYLING
+         * ==========================================================================
+         */
+		body { 
+            margin: 0; 
+            font-family: "Roboto Mono", monospace;
+            background-color: #000; 
+            color: #fff; 
+            overflow: hidden; /* Prevent scrollbars on the main window */
+            font-size: 13px;
+        }
+        
+        /* --- Layout System --- */
+        
+        /* Container for the UI overlay on the left side */
+        #panel-container {
+            position: absolute; top: 0px; left: 0; z-index: 10;
+            display: flex; align-items: flex-start;
+			opacity: 0.9;
+        }
+
+        /* The main data/control sidebar */
+        #info {
+            width: 340px; 
+            max-height: calc(100vh - 20px);
+            overflow-y: auto; /* Scroll if vertical height is too small */
+            margin: 10px; padding: 15px;
+            background: rgba(0, 0, 0, 0.9); 
+            border-radius: 8px;
+            backdrop-filter: blur(10px); /* Glassmorphism effect */
+            border: 1px solid rgba(190, 153, 5, 1); /* Gold border */
+            box-shadow: 0 0 20px rgba(0,0,0,0.6);
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* Class to hide the panel off-screen */
+        #info.collapsed { transform: translateX(-120%); }
+
+        /* The arrow button to toggle the panel */
+        #toggle-button {
+            position: absolute; top: 50px; left: 380px; 
+            width: 30px; height: 40px;
+            background: #BE9905; border: none; color: #000;
+            font-weight: bold; cursor: pointer;
+            border-radius: 0 4px 4px 0;
+            transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 11;
+        }
+        
+        /* Move button to the left edge when panel is closed */
+        #info.collapsed + #toggle-button { left: 0; background: #ed1248; color: #fff; }
+
+        /* --- Typography --- */
+        h1 {
+            margin: 0 0 15px 0; font-size: 1.4em; text-align: center; color: #BE9905; 
+			font-family: "Anta", sans-serif; border-bottom: 1px solid #BE9905; padding-bottom: 8px;
+		}
+        h2 { 
+            font-size: 0.85em; color: #BE9905; text-transform: uppercase; letter-spacing: 1px;
+            margin: 15px 0 8px 0; border-bottom: 1px solid #333; padding-bottom: 2px; 
+            font-family: "Anta", sans-serif;
+		}
+        
+        /* --- Forms & Controls --- */
+        .control-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.8em; color: #888; }
+        
+        select, input[type="text"], input[type="number"] {
+            width: 100%; background-color: #1a1a1a; color: #fff; border: 1px solid #444;
+            border-radius: 3px; padding: 6px; font-family: "Roboto Mono", monospace; 
+            box-sizing: border-box; font-size: 0.95em;
+        }
+        select:focus, input:focus { outline: none; border-color: #BE9905; }
+
+        input[type="range"] { width: 100%; accent-color: #BE9905; height: 4px; margin-top: 5px;}
+        input[type="checkbox"] { accent-color: #BE9905; transform: scale(1.2); margin-right: 8px; cursor: pointer; }
+        .range-val { float: right; font-weight: normal; color: #BE9905; }
+
+        /* --- Data Display Grid --- */
+        .data-grid { 
+            display: grid; grid-template-columns: 40px 1fr 1fr; gap: 5px; font-size: 0.8em;
+            margin-bottom: 5px; border-bottom: 1px solid #222; padding-bottom: 4px;
+        }
+        .grid-head { color: #888; font-weight: bold; border-bottom: 1px solid #444; padding-bottom: 2px; margin-bottom: 4px;}
+        .data-label { color: #BE9905; font-weight: bold; }
+        .data-val { color: #eee; text-align: right; }
+        
+        /* --- SVG Visualization Area --- */
+        #map-container {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
+            /* Radial gradient representing deep space */
+            background: radial-gradient(circle at center, #111 0%, #000 100%);
+            cursor: crosshair; /* Indicates probe/measurement tool active */
+        }
+
+        /* --- Tooltip Styling --- */
+        #tooltip {
+            position: absolute;
+            display: none;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid #BE9905;
+            border-radius: 4px;
+            color: #fff;
+            pointer-events: none; /* Crucial: allows mouse events to pass through to SVG */
+            z-index: 100;
+            backdrop-filter: blur(4px);
+            font-family: "Roboto Mono", monospace;
+            font-size: 0.9em;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            transform: translate(15px, 15px); /* Offset from cursor so it doesn't block view */
+        }
+        #tooltip .label { color: #888; font-size: 0.8em; text-transform: uppercase; margin-right: 5px; }
+        #tooltip .value { color: #BE9905; font-weight: bold; }
+
+        /* --- SVG Elements --- */
+        /* vector-effect: non-scaling-stroke ensures lines remain thin even when zooming in */
+        .contour { fill: none; stroke: #4a7a25; stroke-width: 1.5px; opacity: 0.5; vector-effect: non-scaling-stroke; }
+        
+        /* Red Lines - Zero Velocity Gates */
+        .gate-contour { fill: none; stroke: #ff0033; stroke-width: 2.0px; opacity: 1.0; vector-effect: non-scaling-stroke; }
+        
+        .axis { display: none; }
+        
+        .body-marker { stroke: #000; stroke-width: 1px; vector-effect: non-scaling-stroke; }
+        .primary { fill: #00d2ff; }
+        .secondary { fill: #ccc; }
+        
+        .lagrange-point { fill: #BE9905; stroke: none; }
+        .lagrange-label { fill: #BE9905; font-weight: bold; text-anchor: middle; pointer-events: none; }
+        
+        #loading { position:absolute; bottom:20px; right:20px; color: #BE9905; display:none; background:rgba(0,0,0,0.8); padding:5px 10px; border-radius:4px; border:1px solid #333;}
+
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+<div id="tooltip">
+    <span class="label">Jacobi C:</span>
+    <span class="value" id="tooltip-val">--</span>
+</div>
+
+<div id="panel-container">
+    <div id="info">
+        <h1>CR3BP Visualiser</h1>
+        
+        <h2>System Config</h2>
+        <div class="control-group">
+            <label>Preset Scenario</label>
+            <select id="preset-select">
+                <option value="custom">Custom</option>
+                <option value="earth-moon" selected>Earth - Moon</option>
+                <option value="saturn-titan">Saturn - Titan</option>
+                <option value="sun-jupiter">Sun - Jupiter</option>
+            </select>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1">
+                <label>Mass 1 (kg)</label>
+                <input type="text" id="m1-input" value="5.972e24">
+            </div>
+            <div style="flex:1">
+                <label>Mass 2 (kg)</label>
+                <input type="text" id="m2-input" value="7.348e22">
+            </div>
+        </div>
+        <div class="control-group" style="margin-top:10px;">
+            <label>Distance (km)</label>
+            <input type="text" id="dist-input" value="384400">
+        </div>
+
+        <h2>Parameters</h2>
+        <div class="control-group">
+            <label>Mass Ratio (μ) <span class="range-val" id="mu-val">--</span></label>
+            <input type="range" id="mu-slider" min="0.001" max="0.5" step="0.0001">
+            <div style="font-size:0.75em; color:#666; margin-top:2px;">
+                μ = M2 / (M1 + M2). Slider overrides mass inputs.
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Spectrum of Jacobi Constant (C)</label>
+            <div style="display:flex; gap:10px;">
+                <div style="flex:1">
+                    <label>Min</label>
+                    <input type="number" id="c-min-input" value="2.8" step="0.01">
+                </div>
+                <div style="flex:1">
+                    <label>Max</label>
+                    <input type="number" id="c-max-input" value="3.5" step="0.1">
+                </div>
+            </div>
+            <div style="font-size:0.75em; color:#666; margin-top:4px;">
+                Adjust range to inspect valleys (low C) or peaks (high C).
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Contour Density <span class="range-val" id="density-val">40</span></label>
+            <input type="range" id="density-slider" min="10" max="500" step="5" value="40">
+        </div>
+        
+        <div class="control-group">
+            <label>Grid Resolution <span class="range-val" id="res-val">600px</span></label>
+            <input type="range" id="res-slider" min="200" max="800" step="100" value="600">
+        </div>
+
+        <div class="control-group" style="margin-top:15px;">
+            <div style="display:flex; align-items:center; margin-bottom: 5px;">
+                <input type="checkbox" id="toggle-lp" checked>
+                <label for="toggle-lp" style="margin:0; cursor:pointer; color:#fff;">Show Lagrange Points</label>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <input type="checkbox" id="toggle-gates" checked>
+                <label for="toggle-gates" style="margin:0; cursor:pointer; color:#fff;">Show Lagrange Point zero-velocity curves</label>
+            </div>
+        </div>
+
+        <h2>Lagrange Points (Dist in km)</h2>
+        <div id="results-panel">
+            <div class="data-grid grid-head">
+                <span>Pt</span>
+                <span style="text-align:right">From M1</span>
+                <span style="text-align:right">From M2</span>
+            </div>
+            <div id="lp-rows"></div>
+        </div>
+    </div>
+    
+    <button id="toggle-button" title="Toggle Panel">◀</button>
+</div>
+
+<div id="map-container">
+    <div id="loading">Calculating Potential Field...</div>
+    <svg id="map-svg"></svg>
+</div>
+
+<script>
+    'use strict';
+
+    /* * =======================================================================
+     * 1. PHYSICS ENGINE (CR3BP)
+     * =======================================================================
+     * The Circular Restricted Three-Body Problem (CR3BP) describes the motion 
+     * of a massless particle under the gravitational influence of two massive 
+     * bodies revolving around their centre of mass.
+     */
+
+    const Physics = {
+        /**
+         * Calculates the position of the five Lagrange points (L1-L5).
+         * These are points where gravitational and centrifugal forces balance.
+         * * Calculation uses Normalised Units:
+         * - Total Mass = 1
+         * - Distance between bodies = 1
+         * - Primary Body (M1) is at (-mu, 0)
+         * - Secondary Body (M2) is at (1-mu, 0)
+         * * @param {number} mu - The mass ratio: M2 / (M1 + M2)
+         * @returns {Object} Coordinates {x, y} for L1 through L5
+         */
+        getLagrangePoints: (mu) => {
+            const lPoints = {};
+
+            // Derivative of the potential function dU/dx = 0 for collinear points (y=0)
+            const f = (x) => {
+                const r1 = Math.abs(x + mu);       // Distance to Primary
+                const r2 = Math.abs(x - (1 - mu)); // Distance to Secondary
+                
+                // Direction of gravitational pull based on position relative to bodies
+                const sign1 = (x + mu) >= 0 ? 1 : -1;
+                const sign2 = (x - (1 - mu)) >= 0 ? 1 : -1;
+                
+                // Equilibrium equation: x (centrifugal) - GravForce1 - GravForce2
+                return x - (1-mu)*sign1/(r1*r1) - mu*sign2/(r2*r2);
+            };
+
+            // Second derivative (for Newton-Raphson slope)
+            const df = (x) => {
+                const r1 = Math.abs(x + mu);
+                const r2 = Math.abs(x - (1 - mu));
+                return 1 + 2*(1-mu)/(r1*r1*r1) + 2*mu/(r2*r2*r2);
+            };
+
+            // Numerical Solver: Newton-Raphson Iteration
+            // Finds the root of f(x) = 0
+            const solve = (guess) => {
+                let x = guess;
+                for(let i=0; i<50; i++) {
+                    const y = f(x);
+                    const dy = df(x);
+                    if(Math.abs(y) < 1e-10) return x; // Converged
+                    x = x - y/dy;
+                }
+                return x;
+            };
+
+            // Calculate Hill Sphere radius for initial guesses
+            const rHill = Math.pow(mu/3, 1/3);
+            
+            // L1: Located between the two masses
+            lPoints.L1 = { x: solve((1-mu) - rHill), y: 0 };
+            
+            // L2: Located beyond the secondary mass
+            lPoints.L2 = { x: solve((1-mu) + rHill), y: 0 };
+            
+            // L3: Located beyond the primary mass (opposite side)
+            lPoints.L3 = { x: solve(-mu - 1.0), y: 0 };
+            
+            // L4 & L5: Form equilateral triangles with the masses (Analytical solution)
+            lPoints.L4 = { x: 0.5 - mu, y: Math.sqrt(3)/2 };
+            lPoints.L5 = { x: 0.5 - mu, y: -Math.sqrt(3)/2 };
+
+            return lPoints;
+        },
+
+        /**
+         * Calculates the Jacobi Constant (C) at a given position (x,y).
+         * The Jacobi Constant is the only conserved quantity in CR3BP, representing energy.
+         * * Formula: C = (x^2 + y^2) + 2(1-mu)/r1 + 2mu/r2 - (vx^2 + vy^2)
+         * For Zero Velocity Curves, we assume velocity = 0, so the term simplifies.
+         * * @param {number} x - Normalised X coordinate
+         * @param {number} y - Normalised Y coordinate
+         * @param {number} mu - Mass ratio
+         * @returns {number} The potential energy value
+         */
+        jacobi: (x, y, mu) => {
+            const r1 = Math.sqrt((x + mu)**2 + y**2);       // Distance to Primary
+            const r2 = Math.sqrt((x - (1-mu))**2 + y**2);   // Distance to Secondary
+            
+            // Clamp value near singularities (centres of planets) to prevent rendering glitches
+            if(r1 < 0.00001 || r2 < 0.00001) return 100; 
+            
+            // Potential Function
+            return (x*x + y*y) + 2*(1-mu)/r1 + 2*mu/r2;
+        }
+    };
+
+    /* * =======================================================================
+     * 2. STATE & UI MANAGEMENT
+     * =======================================================================
+     */
+
+    // Global state object to track simulation parameters
+    const State = {
+        mu: 0.01215,       // Default Mass Ratio (Earth-Moon)
+        realDist: 384400,  // Distance in km (for UI display only)
+        realM1: 5.972e24,  // Mass 1 kg
+        gridSize: 600,     // Resolution of the computation grid (NxN)
+        k: 300,            // Current Zoom Scale
+        contours: 40,      // Number of contour lines
+        cMin: 2.8,         // Minimum Energy to render
+        cMax: 3.5,         // Maximum Energy to render
+        showLP: true,      // Visibility flag for Lagrange Points
+        showGates: true,   // Visibility flag for Red Gates
+        width: 0, height: 0, // SVG Dimensions
+        transform: { k: 300, x: 0, y: 0 }, // D3 Zoom Transform state
+        debounceTimer: null, // Timer for adaptive resolution on zoom
+        r1_limit: 0.1,     // Visual radius limit for Primary
+        r2_limit: 0.1      // Visual radius limit for Secondary
+    };
+
+    // Cache DOM elements for performance
+    const UI = {
+        m1: document.getElementById('m1-input'),
+        m2: document.getElementById('m2-input'),
+        dist: document.getElementById('dist-input'),
+        preset: document.getElementById('preset-select'),
+        muSlider: document.getElementById('mu-slider'),
+        muLabel: document.getElementById('mu-val'),
+        densitySlider: document.getElementById('density-slider'),
+        cMin: document.getElementById('c-min-input'),
+        cMax: document.getElementById('c-max-input'),
+        resSlider: document.getElementById('res-slider'),
+        resLabel: document.getElementById('res-val'),
+        lpContainer: document.getElementById('lp-rows'),
+        toggleLP: document.getElementById('toggle-lp'),
+        toggleGates: document.getElementById('toggle-gates'),
+        panel: document.getElementById('info'),
+        toggle: document.getElementById('toggle-button'),
+        loading: document.getElementById('loading'),
+        tooltip: document.getElementById('tooltip'),
+        tooltipVal: document.getElementById('tooltip-val')
+    };
+
+    /* * =======================================================================
+     * 3. VISUALISATION CONTROLLER (D3.js)
+     * =======================================================================
+     */
+
+    let svg, gMain, gBackground, gGates, gBodies;
+    let zoomBehavior;
+
+    /**
+     * Initialisation function. Sets up SVG layers, Zoom behaviour, and Event Listeners.
+     */
+    function init() {
+        svg = d3.select("#map-svg");
+        gMain = svg.append("g");
+        
+        // Define Layers in order (Background -> Gates -> Bodies)
+        gBackground = gMain.append("g").attr("class", "layer-bg");
+        gGates = gMain.append("g").attr("class", "layer-gates");
+        gBodies = gMain.append("g").attr("class", "layer-bodies");
+
+        // Handle window resizing
+        resize();
+        window.addEventListener('resize', resize);
+
+        // Tooltip Interaction
+        svg.on("mousemove", handleMouseMove)
+           .on("mouseenter", () => UI.tooltip.style.display = "block")
+           .on("mouseleave", () => UI.tooltip.style.display = "none");
+
+        // Setup D3 Zoom (Pan & Zoom functionality)
+        zoomBehavior = d3.zoom()
+            .scaleExtent([50, 200000]) // Allow deep zooming
+            .on("zoom", handleZoom);
+        
+        // Initial zoom position: Centred
+        const initialTransform = d3.zoomIdentity
+            .translate(State.width/2, State.height/2)
+            .scale(300);
+
+        svg.call(zoomBehavior)
+           .call(zoomBehavior.transform, initialTransform);
+
+        State.transform = initialTransform;
+
+        // UI Event Listeners
+        UI.toggle.onclick = () => {
+            UI.panel.classList.toggle('collapsed');
+            UI.toggle.textContent = UI.panel.classList.contains('collapsed') ? "▶" : "◀";
+        };
+
+        UI.preset.onchange = applyPreset;
+        
+        // Recalculate if user manually changes text inputs
+        [UI.m1, UI.m2, UI.dist].forEach(el => {
+            el.onchange = () => { 
+                UI.preset.value = "custom";
+                updateSim(false); 
+            };
+        });
+
+        // Slider Input: Updates visuals immediately (drag)
+        UI.muSlider.oninput = (e) => {
+            UI.preset.value = "custom";
+            const val = parseFloat(e.target.value);
+            UI.muLabel.textContent = val.toFixed(4);
+            State.mu = val;
+        };
+        // Slider Change: Recalculates heavy math on release
+        UI.muSlider.onchange = () => updateSim(true); 
+
+        // Update when C-Range changes
+        UI.cMin.onchange = (e) => { State.cMin = parseFloat(e.target.value); updateSim(false); };
+        UI.cMax.onchange = (e) => { State.cMax = parseFloat(e.target.value); updateSim(false); };
+
+        UI.densitySlider.onchange = (e) => {
+            State.contours = parseInt(e.target.value);
+            document.getElementById('density-val').textContent = State.contours;
+            updateSim(false);
+        };
+
+        UI.resSlider.onchange = (e) => {
+            State.gridSize = parseInt(e.target.value);
+            UI.resLabel.textContent = State.gridSize + "px";
+            updateSim(false);
+        }
+
+        UI.toggleLP.onchange = (e) => {
+            State.showLP = e.target.checked;
+            d3.selectAll(".lp-group").classed("hidden", !State.showLP);
+        };
+
+        UI.toggleGates.onchange = (e) => {
+            State.showGates = e.target.checked;
+            gGates.classed("hidden", !State.showGates);
+        };
+
+        // Start with default preset
+        applyPreset();
+    }
+
+    /**
+     * Helper to format the Mass Ratio display
+     */
+    function formatMuDisplay(val) {
+        if(val < 0.0001) {
+            UI.muLabel.textContent = val.toExponential(3);
+        } else {
+            UI.muLabel.textContent = val.toFixed(5);
+        }
+    }
+
+    /**
+     * Updates the tooltip with the Jacobi Constant at the cursor position.
+     * Performs an Inverse Transform to map Screen Coordinates -> Physics Coordinates.
+     */
+    function handleMouseMove(event) {
+        // Get mouse coordinates relative to SVG
+        const [mx, my] = d3.pointer(event);
+        
+        // Update Tooltip position near cursor
+        UI.tooltip.style.left = (event.clientX) + "px";
+        UI.tooltip.style.top = (event.clientY) + "px";
+        
+        // Inverse Transform Logic:
+        // Screen = Translate + Scale * World
+        // World = (Screen - Translate) / Scale
+        const t = State.transform;
+        const physX = (mx - t.x) / t.k;
+        const physY = (my - t.y) / t.k;
+
+        // Calculate Jacobi Constant at this specific location
+        const C = Physics.jacobi(physX, physY, State.mu);
+        
+        if(C > 50) {
+             UI.tooltipVal.textContent = "> 50.0";
+        } else {
+             UI.tooltipVal.textContent = C.toFixed(4);
+        }
+    }
+
+    /**
+     * Handles Zoom/Pan events.
+     * Maintains visual consistency of labels and markers (Counter-Scaling).
+     */
+    function handleZoom(e) {
+        // Apply the transformation to the main group
+        gMain.attr("transform", e.transform);
+        State.transform = e.transform;
+        const k = e.transform.k;
+        const invK = 1/k; // Inverse scale factor
+        
+        // Counter-scale markers so they remain constant size on screen (e.g., 5px)
+        gBodies.selectAll(".lp-marker").attr("r", 5 * invK);
+        
+        // Ensure planets don't disappear but also don't get huge
+        gBodies.select(".primary").attr("r", Math.max(State.r1_limit, 4 * invK));
+        gBodies.select(".secondary").attr("r", Math.max(State.r2_limit, 4 * invK));
+
+        // Counter-scale labels
+        gBodies.selectAll(".lagrange-label")
+            .attr("transform", d => {
+               // Move label 30px away from the point (in screen space)
+               const offX = d.vecX * (30 * invK); 
+               const offY = d.vecY * (30 * invK);
+               return `translate(${offX}, ${offY}) scale(${invK})`;
+            });
+
+        // Adaptive Detail: If user zooms in deep, recalculate contours with higher detail
+        if(State.debounceTimer) clearTimeout(State.debounceTimer);
+        State.debounceTimer = setTimeout(() => {
+            if(k > 500) {
+                const lp = Physics.getLagrangePoints(State.mu);
+                generateContours(lp);
+            }
+        }, 400); // 400ms delay to prevent lag while zooming
+    }
+
+    function resize() {
+        State.width = window.innerWidth;
+        State.height = window.innerHeight;
+        svg.attr("width", State.width).attr("height", State.height);
+    }
+
+    /**
+     * Applies predefined system parameters (Masses, Distances).
+     */
+    function applyPreset() {
+        const p = UI.preset.value;
+        
+        // Preset Definitions
+        if(p === 'earth-moon') {
+            UI.m1.value = "5.972e24";
+            UI.m2.value = "7.348e22";
+            UI.dist.value = "384400";
+        } else if (p === 'saturn-titan') {
+            UI.m1.value = "5.683e26";
+            UI.m2.value = "1.345e23";
+            UI.dist.value = "1221870";
+        } else if (p === 'sun-jupiter') {
+            UI.m1.value = "1.989e30";
+            UI.m2.value = "1.898e27";
+            UI.dist.value = "778500000"; 
+        }
+        
+        // Reset default range for all presets for consistency
+        if(p !== 'custom') {
+            UI.cMin.value = 2.8; 
+            UI.cMax.value = 3.5;
+        }
+        
+        // Sync State
+        State.cMin = parseFloat(UI.cMin.value);
+        State.cMax = parseFloat(UI.cMax.value);
+
+        if(p !== 'custom') {
+            updateSim(false);
+        }
+    }
+
+    /**
+     * Main Simulation Update Loop.
+     * Recalculates Physics -> Updates Data -> Triggers Rendering.
+     * * @param {boolean} fromSlider - True if update triggered by mass slider (prevents overwrite)
+     */
+    function updateSim(fromSlider) {
+        UI.loading.style.display = "block";
+        
+        let m1 = parseFloat(UI.m1.value);
+        let m2 = parseFloat(UI.m2.value);
+
+        if (fromSlider) {
+            // If slider moved, keep M1 constant and calculate new M2
+            m2 = (State.mu * m1) / (1 - State.mu);
+            UI.m2.value = m2.toExponential(4);
+        } else {
+            // If inputs changed, calculate new Mu
+            State.realDist = parseFloat(UI.dist.value);
+            State.mu = m2 / (m1 + m2);
+            UI.muSlider.value = State.mu;
+        }
+
+        formatMuDisplay(State.mu);
+
+        // Use setTimeout to allow browser to render the "Loading" text before heavy math
+        setTimeout(() => {
+            const mu = State.mu;
+            const lp = Physics.getLagrangePoints(mu);
+            
+            // Calculate Visual Limits for Body Radii (to prevent overlapping L1)
+            const distL1_M2 = Math.abs((1 - mu) - lp.L1.x);
+            const distL1_M1 = Math.abs(lp.L1.x - (-mu));
+
+            State.r2_limit = distL1_M2 * 0.25; // Cap M2 size at 25% of distance to L1
+            
+            // Scale M1 size based on cubic root of mass ratio (Volume ~ Mass)
+            const ratio = Math.pow((1 - mu) / mu, 1/3);
+            State.r1_limit = State.r2_limit * ratio;
+
+            if(State.r1_limit > distL1_M1 * 0.8) State.r1_limit = distL1_M1 * 0.8;
+
+            // Render Steps
+            drawSystem(lp);
+            updateInfoPanel(lp);
+            generateContours(lp);
+
+            // Re-apply zoom transforms to ensure new radii take effect
+            handleZoom({ transform: State.transform });
+            UI.loading.style.display = "none";
+        }, 50);
+    }
+
+    /**
+     * Core Rendering Logic using Marching Squares (d3.contours).
+     * Calculates the potential field across a grid and generates SVG paths.
+     */
+    function generateContours(lp) {
+        const n = State.gridSize, m = State.gridSize;
+        const values = new Array(n * m); // Flat array for grid data
+        
+        // Define the physical bounds of the simulation window
+        const xMin = -2.5, xMax = 2.5; 
+        const yMin = -2.0, yMax = 2.0;
+        
+        // 1. Populate the Grid with Potential Values
+        for (let j = 0; j < m; ++j) {
+            for (let i = 0; i < n; ++i) {
+                // Map grid index (i,j) to physical coordinate (x,y)
+                const x = xMin + (i / n) * (xMax - xMin);
+                const y = yMin + (j / m) * (yMax - yMin);
+                values[j * n + i] = Physics.jacobi(x, y, State.mu);
+            }
+        }
+
+        // Calculate Critical Energy Levels at Lagrange Points
+        const cL1 = Physics.jacobi(lp.L1.x, lp.L1.y, State.mu);
+        const cL2 = Physics.jacobi(lp.L2.x, lp.L2.y, State.mu);
+        const cL3 = Physics.jacobi(lp.L3.x, lp.L3.y, State.mu);
+        
+        // --- LAYER 1: Background Gradient Contours ---
+        const range = State.cMax - State.cMin;
+        const step = range / State.contours;
+        let thresholds = d3.range(State.cMin, State.cMax, step);
+        
+        // Inject extra detail if zoomed in significantly
+        if(State.transform.k > 500) {
+            // Add fine-grained contours between Min C and L1
+            if(State.cMin < cL1) {
+                const extraDetail = d3.range(State.cMin, cL1, (cL1 - State.cMin) / 60);
+                thresholds = thresholds.concat(extraDetail);
+            }
+        }
+        
+        thresholds.sort((a,b)=>a-b);
+        // Remove duplicate thresholds to prevent double-drawing
+        thresholds = thresholds.filter((v, i, a) => !i || v > a[i - 1] + 1e-4);
+
+        // Setup Contour Generator
+        const contourGen = d3.contours().size([n, m]);
+        
+        // Setup Projection: Maps Grid [0, n] -> Physical [xMin, xMax] -> Screen [pixels]
+        const pathGen = d3.geoPath().projection(d3.geoTransform({
+            point: function(x, y) {
+                this.stream.point(
+                    xMin + (x/n)*(xMax-xMin), 
+                    yMin + (y/m)*(yMax-yMin)
+                );
+            }
+        }));
+
+        // Generate and Draw Background Contours
+        const bgData = contourGen.thresholds(thresholds)(values);
+        gBackground.selectAll("path").remove();
+        gBackground.selectAll("path")
+            .data(bgData)
+            .enter().append("path")
+            .attr("d", pathGen)
+            .attr("class", "contour")
+            .style("stroke", d => {
+                // Colour Mapping: Turbo interpolator based on energy level
+                const norm = (d.value - State.cMin) / (State.cMax - State.cMin);
+                return d3.interpolateTurbo(norm);
+            });
+
+        // --- LAYER 2: Red Gates (Zero Velocity Curves) ---
+        // We invert the values (multiply by -1) to contour the "holes" (forbidden regions)
+        // rather than the "peaks". This prevents the contours from creating a box around the screen edges.
+        const valuesNeg = values.map(v => -v);
+        const gateThresholds = [-cL1, -cL2, -cL3];
+        
+        const gateData = contourGen.thresholds(gateThresholds)(valuesNeg);
+
+        gGates.selectAll("path").remove();
+        gGates.selectAll("path")
+            .data(gateData)
+            .enter().append("path")
+            .attr("d", pathGen)
+            .attr("class", "gate-contour"); // CSS applies red stroke
+    }
+
+    /**
+     * Renders the Planets (M1, M2) and Lagrange Points.
+     */
+    function drawSystem(lp) {
+        gBodies.selectAll("*").remove();
+        
+        const m1x = -State.mu;
+        const m2x = 1 - State.mu;
+
+        // Draw Primary Body
+        gBodies.append("circle")
+            .attr("cx", m1x).attr("cy", 0) 
+            .attr("class", "body-marker primary");
+        
+        // Draw Secondary Body
+        gBodies.append("circle")
+            .attr("cx", m2x).attr("cy", 0)
+            .attr("class", "body-marker secondary");
+
+        const points = [
+            { id: "L1", ...lp.L1 }, { id: "L2", ...lp.L2 }, { id: "L3", ...lp.L3 },
+            { id: "L4", ...lp.L4 }, { id: "L5", ...lp.L5 }
+        ];
+
+        // Draw Lagrange Points and Labels
+        points.forEach(p => {
+            const g = gBodies.append("g")
+                .attr("transform", `translate(${p.x},${p.y})`)
+                .attr("class", "lp-group");
+            
+            if(!State.showLP) g.classed("hidden", true);
+
+            // The Marker
+            g.append("circle")
+                .attr("class", "lp-marker")
+                .style("fill", "#BE9905");
+            
+            // Calculate Vector direction away from nearest body for Label placement
+            const d1 = Math.sqrt((p.x - m1x)**2 + p.y**2);
+            const d2 = Math.sqrt((p.x - m2x)**2 + p.y**2);
+            
+            let vecX, vecY;
+            if(d2 < d1) {
+                // Closer to M2, push label away from M2
+                vecX = p.x - m2x; vecY = p.y - 0;
+            } else {
+                // Closer to M1, push label away from M1
+                vecX = p.x - m1x; vecY = p.y - 0;
+            }
+            // Normalise vector
+            const mag = Math.sqrt(vecX**2 + vecY**2);
+            vecX /= mag; vecY /= mag;
+
+            // The Label
+            g.append("text")
+                .text(p.id)
+                .datum({ vecX: vecX, vecY: vecY }) // Store vector for zoom handler to use
+                .attr("class", "lagrange-label")
+                .style("font-size", "14px");
+        });
+    }
+
+    /**
+     * Updates the text panel with real-world distances.
+     */
+    function updateInfoPanel(lp) {
+        UI.lpContainer.innerHTML = "";
+        
+        // Formatter for large numbers (Millions "Mn" or Thousands "k")
+        const fmt = (val) => {
+            if(val > 1000000) return (val/1000000).toFixed(2) + " Mn";
+            if(val > 1000) return (val/1000).toFixed(0) + " k";
+            return val.toFixed(0);
+        }
+
+        // Distance Calculator
+        const dist = (p, center) => {
+            const dx = p.x - center.x;
+            const dy = p.y - center.y;
+            return Math.sqrt(dx*dx + dy*dy) * State.realDist;
+        };
+
+        const m1Pos = { x: -State.mu, y: 0 };
+        const m2Pos = { x: 1 - State.mu, y: 0 };
+
+        const points = [
+            { id: "L1", ...lp.L1 }, { id: "L2", ...lp.L2 }, { id: "L3", ...lp.L3 },
+            { id: "L4", ...lp.L4 }, { id: "L5", ...lp.L5 }
+        ];
+
+        // Generate HTML rows
+        points.forEach(p => {
+            const d1 = dist(p, m1Pos);
+            const d2 = dist(p, m2Pos);
+            
+            const div = document.createElement('div');
+            div.className = "data-grid";
+            div.innerHTML = `
+                <span class="data-label">${p.id}</span>
+                <span class="data-val">${fmt(d1)}</span>
+                <span class="data-val">${fmt(d2)}</span>
+            `;
+            UI.lpContainer.appendChild(div);
+        });
+    }
+
+    // Start Application
+    init();
+
+</script>
+</body>
+</html>
